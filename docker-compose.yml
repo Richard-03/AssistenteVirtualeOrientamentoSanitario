@@ -47,10 +47,18 @@ services:
     container_name: ollama_service
     ports:
       - "11435:11434"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     volumes:
       - ollama:/root/.ollama
-    entrypoint: /bin/sh -c "ollama serve & sleep 2 && ollama pull gemma3:4b && tail -f /dev/null"
+    entrypoint: /bin/sh
+    command: ["-c", "ollama serve & sleep 5 && ollama pull gemma3:4b && tail -f /dev/null"]
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
 
   backend_service:
     build: ./backend

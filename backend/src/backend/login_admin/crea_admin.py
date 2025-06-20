@@ -3,12 +3,13 @@ import bcrypt
 
 # TODO: definire un file di configurazione da cui gesitre le variabili di setup
 
-DOCKER = True
+from config import * 
+
 def _get_connection() -> mariadb.Connection:
     # nome, utente, password: tutto assegnato all'interno di init.sql
     conn = mariadb.connect(
-        host = "127.0.0.1" if not DOCKER else "mariadb",
-        port = 3306 if DOCKER else 3307, 
+        host = MARIA_DB_URL,
+        port = MARIA_DB_PORT, 
         user = "appuser",  
         password = "userdb",  
         database = "user_db"   

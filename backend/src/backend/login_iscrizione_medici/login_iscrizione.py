@@ -10,7 +10,7 @@ import os
 
 from database.database import _get_connection
 #connessione  a mariadb
-conn = _get_connection()
+
 
 #funzione per creare correttamente la query SQL in caso di None e altri valori sensibili e apici singoli
 def format_value(val):
@@ -100,6 +100,7 @@ def subscribe_medico(
         stato=stato
     )
     query_verify = f"SELECT email FROM Medico WHERE email={format_value(medico.email)}"#verifica se  il medico gia e registrato
+    conn = _get_connection()
     result=execute_query(conn,query_verify)
     if result!=[]:
         raise HTTPException(status_code=400, detail="Email già registrata. Hai già un account?")
@@ -191,6 +192,7 @@ def subscribe_medico(
 
 
 def login_medico(medico:MedicoLoginModel):
+    conn = _get_connection()
     query=f"SELECT password, verificato FROM Medico WHERE email={format_value(medico.email)}"
     result=execute_query(conn, query)
 
@@ -243,6 +245,7 @@ def login_medico(medico:MedicoLoginModel):
 # Endpoint per modificare l'email del medico
 
 def modifica_email(data: dict):
+    conn = _get_connection()
     id_medico = data.get("id")
     nuova_email = data.get("nuova_email")
 
@@ -261,6 +264,7 @@ def modifica_email(data: dict):
 # Endpoint per ottenere l'agenda del medico autenticato
 
 def get_agenda_medico(id_medico: int):
+    conn = _get_connection()
     query = f"""
     SELECT 
         a.id AS id_appuntamento,
@@ -284,10 +288,7 @@ def get_agenda_medico(id_medico: int):
 
 # Endpoint per eliminare un appuntamento (aggiorna lo stato a 'Eliminato')
 def elimina_appuntamento(id_appuntamento: int):
-   
-    
-
-    
+    conn = _get_connection()
     query = f"""
     UPDATE Agenda
     SET stato = 'Eliminato'

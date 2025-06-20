@@ -10,12 +10,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "l
 from ..login_iscrizione_medici.login_iscrizione import execute_query, insert_data_query, format_value
 
 from database.database import _get_connection
-conn = _get_connection()
 
 
 def login_admin(email:str=Form(...),password:str=Form(...)):
     query = f"SELECT password FROM Admin WHERE email = {format_value(email)}"
     try:
+        conn = _get_connection()
+
         result = execute_query(conn, query)
         if not result:
             raise HTTPException(status_code=404, detail="Admin non trovato")
@@ -33,6 +34,8 @@ def login_admin(email:str=Form(...),password:str=Form(...)):
 def get_utenti_non_verificati():
     query = "SELECT nome, cognome, email FROM Medico WHERE verificato=0"
     try:
+        conn = _get_connection()
+
         result = execute_query(conn, query)
         utenti = [{"nome": r[0], "cognome": r[1], "email": r[2]} for r in result]
         return {"da_verificare": utenti}
@@ -53,6 +56,8 @@ def get_tesserino(email:str):
 def verifica_medico(email:str=Form(...)):
     query = f"UPDATE Medico SET verificato=1 WHERE email={format_value(email)}"
     try:
+        conn = _get_connection()
+
         success = insert_data_query(conn, query)
         if success:
             return {"message": f"Medico con email {email} verificato con successo"}

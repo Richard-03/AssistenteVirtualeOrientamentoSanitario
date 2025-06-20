@@ -15,15 +15,8 @@ from .send_mail import *
 
 #connessione  a mariadb
 from database.database import _get_connection
-""" conn = mariadb.connect(
-    host="127.0.0.1",
-    port=3307,  # MODIFICATA
-    user="root",    # MODIFICATA
-    password="rootpassword",
-    database="user_db"
-) """
 
-conn = _get_connection()
+
 
 # funzione per creare correttamente la query SQL in caso di None e altri valori sensibili e apici singoli
 def format_value(val):
@@ -36,6 +29,7 @@ def format_value(val):
 
 # funzione di esecuzione della query per recupero di dati
 def execute_query(connection: mariadb.Connection, query: str):
+    conn = _get_connection()
     cursor: mariadb.Cursor = connection.cursor()
     cursor.execute(query)
 
@@ -57,6 +51,7 @@ def execute_query(connection: mariadb.Connection, query: str):
 
 #funzione per inserimento dati
 def insert_data_query(connection:mariadb.Connection,query:str):
+    conn = _get_connection()
     try: 
         cursor:mariadb.Cursor=connection.cursor()
         cursor.execute(query)
@@ -71,7 +66,7 @@ def insert_data_query(connection:mariadb.Connection,query:str):
 # TODO: ci sarebbe da fare rollback se un iscrizione non va a buon fine, attualmente mi iscrivo, mi da internal server error e l'iscrizione è andata cmq a buon fine
 # in questo modo se poi provo a iscrivermi di nuovo (perché penso non sia andata a buon fine) mi dice già registrato, errore di nuovo
 def subscribe(cliente:ClienteModel):
-    
+    conn = _get_connection()
     query_verify = f"SELECT email FROM Cliente WHERE email={format_value(cliente.email)}"#verifica se  gia l'utente esiste
     result=execute_query(conn,query_verify)
 
@@ -141,6 +136,7 @@ def subscribe(cliente:ClienteModel):
 
 
 def login(cliente:LoginModel):
+    conn = _get_connection()
     # MODIFICATA
     query = f"SELECT id, password FROM Cliente WHERE email={format_value(cliente.email)}"
     result = execute_query(conn, query)
