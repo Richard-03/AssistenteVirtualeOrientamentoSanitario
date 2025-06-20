@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Admin</title>
+  <link rel="stylesheet" href="/login_admin_frontend/css/style.css">
+</head>
+<body>
+  <div class="container">
+  <h1>Benvenuto nella Dashboard Admin</h1>
+  <form method="get" action="/admin/login">
+    <button type="submit" class="logout-button">Logout</button>
+  </form>
+
+  {% if utenti %}
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Cognome</th>
+          <th>Email</th>
+          <th>Tesserino</th>
+          <th>Azione</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for utente in utenti %}
+        <tr>
+          <td>{{ utente.nome }}</td>
+          <td>{{ utente.cognome }}</td>
+          <td>{{ utente.email }}</td>
+          <td>
+            <a href="{{ api_url }}/admin/tesserino/{{ utente.email }}" target="_blank">Visualizza</a>
+          </td>
+          <td>
+            <form method="post" action="/admin/verifica">
+              <input type="hidden" name="email" value="{{ utente.email }}">
+              <button type="submit">Verifica</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Nessun medico da verificare.</p>
+  {% endif %}
+  </div>
+</body>
+</html>

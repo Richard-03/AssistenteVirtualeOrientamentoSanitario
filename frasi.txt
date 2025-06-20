@@ -1,0 +1,43 @@
+# TEST 1: DA SINTOMI A PRENOTAZIONE
+## FASE 1
+da un paio di settimane ci sono dei momenti di debolezza e verso sera di solito mi accelera il cuore per qualche secondo, cosa può voler dire?
+## FASE 2
+---
+fammi vedere che cardiologi ci sono 
+---
+Potresti mostrarmi i cardiologi in zona?
+---
+## FASE 3
+---
+Vorrei prenotare una visita con la dottoressa Maria Rossi, puoi aiutarmi a fissare un appuntamento? 
+---
+## FASE 3.5
+---
+20 giugno alle 12 e un quarto
+---
+
+
+
+# TEST COMPLETO: 
+- mettere flag in tester.py NEW_CHAT = 1
+- cambiate la mail del cliente con id = 1
+- chattare seguendo i messaggi delle FASI fino a FASE 2 inclusa
+- [opz] rintracciare l'id del medico e sostituire la sua mail con un'altra
+- continuare fino alla fine delle FASI di comunicazione
+
+- si può usare un campo che è nel main di tester.py "chat_id" per riaprire una chat non nuova a patto che il flag NEW_CHAT sia a 0
+
+
+
+# TEST 2: RICHIESTA DIRETTA DEL MEDICO
+---
+Vorrei prenotare una visita da un cardiologo, potresti aiutarmi?
+---
+[BORDERLINE: il prompt non è fatto per questo] 
+Ho già fatto dei controlli di persona da un medico di base e mi ha consigliato di fare qualche accertamento
+---
+[BORDERLINE: // ]  
+Come possono essere connesse le intolleranze a problemi al cuore?
+
+[ROTTO: la seguente è una frase che contiene troppo contenuto informativo: prenotazione + nome + data]
+Si, vorrei prenotare con la dottoressa Maria Rossi, si potrebbe fare il 25 giugno a mezzogiorno?

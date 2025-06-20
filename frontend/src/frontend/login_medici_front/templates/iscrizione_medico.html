@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Iscrizione Medico</title>
+    <link rel="stylesheet" href="/login_medici_front/css/style_medico.css">
+   
+</head>
+<body>
+    <a href="/" class="home-button">🏠 Home</a>
+    <div id="popup-toast" style="display: none; position: fixed; top: 20px; right: 20px; background-color: #ff4d4d; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000;"></div>
+    
+    <form action="/iscrizione_medico_submit" method="post" enctype="multipart/form-data">
+        <h1>Modulo iscrizione Medico👨‍⚕️👩‍⚕️</h1>
+        <label>Nome*:</label><br>
+        <input type="text" name="nome" value="{{ valori_precedenti.get('nome', '') }}" required><br><br>
+
+        <label>Cognome*:</label><br>
+        <input type="text" name="cognome" value="{{ valori_precedenti.get('cognome', '') }}" required><br><br>
+
+        <label>Codice Fiscale*:</label><br>
+        <input type="text" name="codice_fiscale" value="{{ valori_precedenti.get('codice_fiscale', '') }}" minlength="16" maxlength="16" required><br><br>
+
+        <label>Numero Albo*:</label><br>
+        <input type="text" name="numero_albo" value="{{ valori_precedenti.get('numero_albo', '') }}"><br><br>
+
+        <label>Città Ordine*:</label><br>
+        <input type="text" name="citta_ordine" value="{{ valori_precedenti.get('citta_ordine', '') }}"><br><br>
+
+        <label>Data Iscrizione Albo*:</label><br>
+        <input type="date" name="data_iscrizione_albo" value="{{ valori_precedenti.get('data_iscrizione_albo', '') }}" required><br><br>
+
+        <label>Città*:</label><br>
+        <input type="text" name="citta" value="{{ valori_precedenti.get('citta', '') }}" required><br><br>
+
+        <label>Indirizzo:</label><br>
+        <input type="text" name="indirizzo" value="{{ valori_precedenti.get('indirizzo', '') }}"><br><br>
+
+        <label>Telefono:</label><br>
+        <input type="text" name="telefono" value="{{ valori_precedenti.get('telefono', '') }}"><br><br>
+
+        <label>URL del sito personale:</label><br>
+        <input type="url" name="url_sito" value="{{ valori_precedenti.get('url_sito', '') }}"><br><br>
+
+        <label>Stato:</label><br>
+        <select name="stato">
+            <option value="Attivo" selected>Attivo</option>
+            <option value="Eliminato">Eliminato</option>
+        </select><br><br>
+
+        <label>Email*:</label><br>
+        <input type="email" name="email" value="{{ valori_precedenti.get('email', '') }}" required><br><br>
+
+        <label>Password*:</label><br>
+        <input type="password" name="password" value="{{ valori_precedenti.get('password', '') }}" required><br><br>
+
+        <label>Specializzazione*:</label><br>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe della medicina clinica generale e specialistica</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Medicina interna"> Medicina interna</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina d’emergenza-urgenza"> Medicina d’emergenza-urgenza</label>
+                <label><input type="checkbox" name="specializzazione" value="Geriatria"> Geriatria</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina dello sport e dell’esercizio fisico"> Medicina dello sport e dell’esercizio fisico</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina termale"> Medicina termale</label>
+                <label><input type="checkbox" name="specializzazione" value="Oncologia medica"> Oncologia medica</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina di comunità e delle cure primarie"> Medicina di comunità e delle cure primarie</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina e Cure Palliative"> Medicina e Cure Palliative</label>
+                <label><input type="checkbox" name="specializzazione" value="Allergologia"> Allergologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Immunologia clinica"> Immunologia clinica</label>
+                <label><input type="checkbox" name="specializzazione" value="Dermatologia"> Dermatologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Venereologia"> Venereologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Ematologia"> Ematologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Endocrinologia e malattie del metabolismo"> Endocrinologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Scienza dell’alimentazione"> Scienza dell’alimentazione</label>
+                <label><input type="checkbox" name="specializzazione" value="Malattie dell’apparato digerente"> Malattie dell’apparato digerente</label>
+                <label><input type="checkbox" name="specializzazione" value="Malattie dell’apparato cardiovascolare"> Malattie dell’apparato cardiovascolare</label>
+                <label><input type="checkbox" name="specializzazione" value="Malattie dell’apparato respiratorio"> Malattie dell’apparato respiratorio</label>
+                <label><input type="checkbox" name="specializzazione" value="Malattie infettive"> Malattie infettive</label>
+                <label><input type="checkbox" name="specializzazione" value="Malattie tropicali"> Malattie tropicali</label>
+                <label><input type="checkbox" name="specializzazione" value="Nefrologia"> Nefrologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Reumatologia"> Reumatologia</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe delle neuroscienze e scienze cliniche del comportamento</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Neurologia"> Neurologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Neuropsichiatria infantile"> Neuropsichiatria infantile</label>
+                <label><input type="checkbox" name="specializzazione" value="Psichiatria"> Psichiatria</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe della medicina clinica dell’età evolutiva</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Pediatria"> Pediatria</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe delle chirurgie generali e specialistiche</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia generale"> Chirurgia generale</label>
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia pediatrica"> Chirurgia pediatrica</label>
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia plastica"> Chirurgia plastica</label>
+                <label><input type="checkbox" name="specializzazione" value="Ginecologia"> Ginecologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Ostetricia"> Ostetricia</label>
+                <label><input type="checkbox" name="specializzazione" value="Ortopedia"> Ortopedia</label>
+                <label><input type="checkbox" name="specializzazione" value="Traumatologia"> Traumatologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Urologia"> Urologia</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe delle chirurgie del distretto testa e collo</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia maxillo-facciale"> Chirurgia maxillo-facciale</label>
+                <label><input type="checkbox" name="specializzazione" value="Neurochirurgia"> Neurochirurgia</label>
+                <label><input type="checkbox" name="specializzazione" value="Oftalmologia"> Oftalmologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Otorinolaringoiatria"> Otorinolaringoiatria</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe delle chirurgie cardio-toraco-vascolari</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Cardiochirurgia"> Cardiochirurgia</label>
+                <label><input type="checkbox" name="specializzazione" value="Cardiologia"> Cardiologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia toracica"> Chirurgia toracica</label>
+                <label><input type="checkbox" name="specializzazione" value="Chirurgia vascolare"> Chirurgia vascolare</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe della medicina diagnostica e di laboratorio</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Anatomia patologica"> Anatomia patologica</label>
+                <label><input type="checkbox" name="specializzazione" value="Microbiologia"> Microbiologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Virologia"> Virologia</label>
+
+                <label><input type="checkbox" name="specializzazione" value="Patologia clinica"> Patologia clinica</label>
+                <label><input type="checkbox" name="specializzazione" value="Biochimica clinica"> Biochimica clinica</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe della diagnostica per immagini e radioterapia</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Radiodiagnostica"> Radiodiagnostica</label>
+                <label><input type="checkbox" name="specializzazione" value="Radioterapia"> Radioterapia</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina nucleare"> Medicina nucleare</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe dei servizi clinici specialistici</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Anestesia, rianimazione e terapia intensiva e del dolore"> Anestesia, rianimazione e terapia intensiva e del dolore</label>
+                <label><input type="checkbox" name="specializzazione" value="Audiologia"> Audiologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Foniatria"> Foniatria</label>
+
+                <label><input type="checkbox" name="specializzazione" value="Medicina riabilitativa"> Medicina riabilitativa</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe dei servizi clinici specialistici biomedici</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Farmacologia"> Farmacologia</label>
+                <label><input type="checkbox" name="specializzazione" value="Tossicologia clinica"> Tossicologia clinica</label>
+                <label><input type="checkbox" name="specializzazione" value="Genetica medica"> Genetica medica</label>
+            </div>
+        </div>
+
+        <div class="specializzazione-section">
+            <button type="button" class="toggle-specializzazione">Classe della sanità pubblica</button>
+            <div class="checkbox-group" style="display:none;">
+                <label><input type="checkbox" name="specializzazione" value="Igiene e medicina preventiva"> Igiene e medicina preventiva</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina del lavoro"> Medicina del lavoro</label>
+                <label><input type="checkbox" name="specializzazione" value="Medicina legale"> Medicina legale</label>
+                <label><input type="checkbox" name="specializzazione" value="Statistica sanitaria"> Statistica sanitaria</label>
+                <label><input type="checkbox" name="specializzazione" value="Biometria"> Biometria</label>
+
+            </div>
+        </div>
+
+        <input type="hidden" name="specializzazione" id="specializzazione-json">
+
+        <label>Carica Tesserino:</label><br>
+        <input type="file" name="tesserino" required><br><br>
+
+        <!-- Passiamo anche il nome del file -->
+        <input type="hidden" name="tesserino_filename" id="tesserino_filename">
+
+        <button type="submit">Invia Iscrizione</button>
+    </form>
+
+    <script>
+        const fileInput=document.querySelector('input[name="tesserino"]');
+        const filenameInput=document.getElementById('tesserino_filename');
+        fileInput.addEventListener('change',function(){
+            if(this.files.length>0){
+                filenameInput.value=this.files[0].name;
+            }
+        });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded',function(){
+        const buttons=document.querySelectorAll('.toggle-specializzazione');
+        buttons.forEach(button=>{
+            button.addEventListener('click',()=>{
+                const checkboxGroup=button.nextElementSibling;
+                if(checkboxGroup.style.display==='none'||checkboxGroup.style.display===''){
+                    checkboxGroup.style.display='flex';
+                }else{
+                    checkboxGroup.style.display='none';
+                }
+            });
+        });
+    });
+    </script>
+    <script>
+    let specializzazioni = [];
+
+    document.querySelectorAll('input[type=checkbox][name="specializzazione"]').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const value = this.value;
+
+            if (this.checked) {
+                const indirizzoInput = document.querySelector('input[name="indirizzo"]');
+                const indirizzo = indirizzoInput.value;
+
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(indirizzo)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            const lat = data[0].lat;
+                            const lon = data[0].lon;
+
+                            specializzazioni.push({
+                                specializzazione: value,
+                                indirizzo: indirizzo,
+                                latitudine: lat,
+                                longitudine: lon
+                            });
+
+                            aggiornaSpecializzazioneJSON();
+                        } else {
+                            alert("Indirizzo non trovato: " + indirizzo);
+                        }
+                    })
+                    .catch(error => {
+                        alert("Errore durante la geocodifica: " + error.message);
+                    });
+            } else {
+                specializzazioni = specializzazioni.filter(s => s.specializzazione !== value);
+                aggiornaSpecializzazioneJSON();
+            }
+        });
+    });
+
+    function aggiornaSpecializzazioneJSON() {
+        document.getElementById("specializzazione-json").value = JSON.stringify(specializzazioni);
+    }
+    </script>
+
+
+{% if errore_backend %}
+<script>
+    const toast = document.getElementById("popup-toast");
+    toast.innerText = "Errore: {{ messaggio_errore | escape }}";
+    toast.style.display = "block";
+    setTimeout(() => {
+        toast.style.display = "none";
+    }, 5000);
+</script>
+{% endif %}
+<script>
+    // pop up im caso di registrazione avvenuta
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("successo") === "1") {
+        alert("Registrazione avvenuta con successo!");
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Utente</title>
+    <link rel="stylesheet" href="/login_front/css/style_iscrizione.css">
+</head>
+<body>
+    <a href="/" class="home-button">🏠 Home</a>
+    <div id="popup-toast" style="display: none; position: fixed; top: 20px; right: 20px; background-color: #ff4d4d; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000;"></div>
+    {% if error %}
+    <script>
+        const toast = document.getElementById("popup-toast");
+        toast.innerText = "{{ error }}";
+        toast.style.display = "block";
+        setTimeout(() => {
+            toast.style.display = "none";
+        }, 5000);
+    </script>
+    {% endif %}
+    <form class="login-form" action="/login_utente" method="post">
+        <h1>Login Utente👤⛑️</h1>
+        <div class="form-input-material">
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" placeholder=" " class="form-control-material" required>
+        </div>
+        <div class="form-input-material">
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" placeholder=" " class="form-control-material" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-ghost">Accedi</button>
+    </form>
+</body>
+</html>

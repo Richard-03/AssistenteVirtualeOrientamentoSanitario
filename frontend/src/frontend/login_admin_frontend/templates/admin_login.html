@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Login Admin</title>
+  <link rel="stylesheet" href="/login_admin_frontend/css/style.css">
+</head>
+<body>
+  <div class="container">
+  <h1>Login Amministratore</h1>
+
+  {% if error %}
+    <p style="color: red;">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" action="/admin/login">
+    <label for="email">Email:</label>
+    <input type="email" name="email" required><br><br>
+
+    <label for="password">Password:</label>
+    <input type="password" name="password" required><br><br>
+
+    <button type="submit">Accedi</button>
+  </form>
+  </div>
+</body>
+</html>

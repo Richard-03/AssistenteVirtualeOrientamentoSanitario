@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/login_front/css/dashboard.css">
+        <title>Dashboard</title>
+    </head>
+    <body class="dashboard-container">
+        <a href="/" class="home-button">🏠 Home</a>
+        <h2 class="dashboard-title">Ciao! Che cosa vuoi fare?</h2>
+
+        <form action="/chat/new" method="post" class="dashboard-form">
+            <input type="hidden" name="client_id" value="{{ client_id }}">
+            <button class="dashboard-button">Inizia nuova chat</button>
+        </form>
+
+        <form action="/chat/resume_all" method="get" class="dashboard-form">
+            <input type="hidden" name="client_id" value="{{ client_id }}">
+            <button class="dashboard-button">Riprendi una chat esistente</button>
+        </form>
+    </body>
+</html>

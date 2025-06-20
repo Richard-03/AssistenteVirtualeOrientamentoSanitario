@@ -1,0 +1,119 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(to right, #0fdd8e, #8eced2);
+  color: #020202;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+
+}
+
+.container {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 40px 50px;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  width: 90%;
+  max-width: 800px;
+  overflow-x: auto;
+}
+
+/* Stile tabella migliorato per leggibilità */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+th, td {
+  padding: 12px;
+  border: 1px solid #ccc;
+}
+th {
+  background-color: #2575fc;
+  color: #ffffff;
+  font-size: 16px;
+  text-align: center;
+}
+td {
+  background-color: #ffffff;
+  color: #020202;
+  font-size: 14px;
+}
+tr:nth-child(even) td {
+  background-color: #f2f2f2;
+}
+
+h1 {
+  font-size: 28px;
+  color: #000000;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  text-align: left;
+  color: #030303;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #ffffff;
+  color: #2575fc;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+button:hover {
+  background-color: #e0e0e0;
+}
+
+.error-message {
+  color: #ffdddd;
+  background-color: #990000;
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
+.logout-button {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 10%;
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 8px 0;
+  border-radius: 0;
+  cursor: pointer;
+  z-index: 1000;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  transition: background-color 0.3s ease;
+}
+
+.logout-button:hover {
+  background-color: #cc0000;
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Profilo Medico</title>
+    <link rel="stylesheet" href="/login_medici_front/css/profilo_medico.css">
+</head>
+<body>
+    <h1>Benvenuto Dr. {{ medico.nome }} {{ medico.cognome }}</h1>
+    
+    <form action="/agenda_medico" >
+        <button >Visualizza Agenda</button>
+    </form>
+    <form action="/modifica_email" method="post">
+        <label for="email"><strong>Email:</strong></label>
+        <input type="email" id="email" name="email" value="{{ medico.email }}" required>
+        <button type="submit">Aggiorna</button>
+    </form>
+    <p><strong>Specializzazioni:</strong></p>
+    <ul>
+        {% for spec in medico.specializzazione %}
+            <li>{{ spec }}</li>
+        {% endfor %}
+    </ul>
+
+    <!-- Altre informazioni del medico -->
+    <p><strong>Codice Fiscale:</strong> {{ medico.codice_fiscale }}</p>
+    <p><strong>Numero Albo:</strong> {{ medico.numero_albo }}</p>
+    <p><strong>Città Ordine:</strong> {{ medico.citta_ordine }}</p>
+    <p><strong>Data Iscrizione Albo:</strong> {{ medico.data_iscrizione_albo }}</p>
+    <p><strong>Città:</strong> {{ medico.citta }}</p>
+    <p><strong>Telefono:</strong> {{ medico.telefono }}</p>
+    <p><strong>URL Sito:</strong> <a href="{{ medico.url_sito }}" target="_blank">{{ medico.url_sito }}</a></p>
+</body>
+<form action="/logout" method="post">
+    <button type="submit">Logout</button>
+</form>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat List</title>
+    <link rel="stylesheet" href="/login_front/css/chat_list.css">
+</head>
+<body>
+    <a href="/dashboard_utente" class="home-button">Dashboard</a>
+    <h2>Le tue chat precedenti</h2>
+    <ul>
+    {% for chat_id in chat_list %}
+        <li>
+            <form action="/chat" method="get">
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <input type="hidden" name="chat_id" value="{{ chat_id }}">
+                <button type="submit">Chat #{{ chat_id }}</button>
+            </form>
+        </li>
+    {% endfor %}
+</ul>
+</body>
+</html>
+

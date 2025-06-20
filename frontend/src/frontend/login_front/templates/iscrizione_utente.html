@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iscrizione Utente</title>
+    <link rel="stylesheet" href="/login_front/css/style_iscrizione.css">
+</head>
+<body>
+    <a href="/" class="home-button">🏠 Home</a>
+    <div id="popup-toast" style="display: none; position: fixed; top: 20px; right: 20px; background-color: #ff4d4d; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000;"></div>
+    <div class="login-form">
+        <h1>Modulo di iscrizione👤⛑️</h1>
+        <form action="/iscrizione_utente" method="post">
+            <div class="form-input-material">
+                <label for="nome">Nome *</label>
+                <input class="form-control-material" type="text" name="nome" id="nome" maxlength="20" required placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="cognome">Cognome *</label>
+                <input class="form-control-material" type="text" name="cognome" id="cognome" maxlength="20" required placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="indirizzo">Indirizzo</label>
+                <input class="form-control-material" type="text" name="indirizzo" id="indirizzo" maxlength="255" placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="citta">Città</label>
+                <input class="form-control-material" type="text" name="citta" id="citta" maxlength="100" placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="email">Email *</label>
+                <input class="form-control-material" type="email" name="email" id="email" required placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="password">Password *</label>
+                <input class="form-control-material" type="password" name="password" id="password" required placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="eta">Età</label>
+                <input class="form-control-material" type="number" name="eta" id="eta" min="1" placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="sesso">Sesso</label>
+                <select class="form-control-material" name="sesso" id="sesso">
+                    <option value="M">Maschio</option>
+                    <option value="F">Femmina</option>
+                    <option value="Altro" selected>Altro</option>
+                </select>
+                
+            </div>
+            <div class="form-input-material">
+                <label for="peso">Peso (kg)</label>
+                <input class="form-control-material" type="number" name="peso" id="peso" step="0.1" min="0" placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="altezza">Altezza (cm)</label>
+                <input class="form-control-material" type="number" name="altezza" id="altezza" step="0.1" min="0" placeholder=" " />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="intolleranze">Intolleranze (separate da virgola)</label>
+                <input class="form-control-material" type="text" name="intolleranze" id="intolleranze" placeholder="es. glutine, lattosio" />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="condizioni_pregresse">Condizioni pregresse (separate da virgola)</label>
+                <input class="form-control-material" type="text" name="condizioni_pregresse" id="condizioni_pregresse" placeholder="es. diabete, ipertensione" />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="condizioni_familiari">Condizioni familiari (separate da virgola)</label>
+                <input class="form-control-material" type="text" name="condizioni_familiari" id="condizioni_familiari" placeholder="es. obesità, infarto" />
+                
+            </div>
+            <div class="form-input-material">
+                <label for="farmaci">Farmaci (separati da virgola)</label>
+                <input class="form-control-material" type="text" name="farmaci" id="farmaci" placeholder="es. insulina, aspirina" />
+                
+            </div>
+            <button type="submit" class="btn">Iscriviti</button>
+        </form>
+    </div>
+</body>
+{% if error %}
+<script>
+    const toast = document.getElementById("popup-toast");
+    toast.innerText = "{{ error }}";
+    toast.style.display = "block";
+    setTimeout(() => {
+        toast.style.display = "none";
+    }, 5000);
+</script>
+{% endif %}
+</html>

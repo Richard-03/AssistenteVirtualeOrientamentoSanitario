@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Agenda Medico</title>
+    <link rel="stylesheet" href="/login_medici_front/css/profilo_medico.css">
+</head>
+<body>
+    <h1>Agenda Appuntamenti</h1>
+  
+    <form action="/" >
+        <button >Torna alla Home</button>
+    </form>
+    {% if agenda %}
+    <table border="1" cellspacing="0" cellpadding="8">
+        <thead>
+            <tr>
+                <th>ID Appuntamento</th>
+                <th>Data e Ora</th>
+                <th>Paziente</th>
+                <th>Stato</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in agenda %}
+            <tr id="appuntamento-{{ a[0] }}">
+                <td>{{ a[0] }}</td>
+                <td>{{ a[1] }}</td>
+                <td>{{ a[3] }} {{ a[4] }}</td>
+                <td>{{ a[2] }}</td>
+                <td>
+                    <button onclick="eliminaAppuntamento({{ a[0] }})">Elimina</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Nessun appuntamento disponibile.</p>
+    {% endif %}
+
+    
+    <form action="/profilo_medico" >
+        <button >Torna  al profilo</button>
+    </form>
+    
+<script>
+function eliminaAppuntamento(id) {
+    if (confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
+        fetch('/elimina_appuntamento', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id_appuntamento: id })
+        }).then(response => {
+            if (response.ok) {
+                const row = document.getElementById(`appuntamento-${id}`);
+                if (row) row.remove();
+            } else {
+                alert("Errore durante l'eliminazione dell'appuntamento.");
+            }
+        });
+    }
+}
+</script>
+</body>
+</html>
