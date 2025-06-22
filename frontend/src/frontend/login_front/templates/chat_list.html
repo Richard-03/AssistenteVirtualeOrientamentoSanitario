@@ -10,12 +10,12 @@
     <a href="/dashboard_utente" class="home-button">Dashboard</a>
     <h2>Le tue chat precedenti</h2>
     <ul>
-    {% for chat_id in chat_list %}
+    {% for chat_number in chat_list %}
         <li>
             <form action="/chat" method="get">
                 <input type="hidden" name="client_id" value="{{ client_id }}">
-                <input type="hidden" name="chat_id" value="{{ chat_id }}">
-                <button type="submit">Chat #{{ chat_id }}</button>
+                <input type="hidden" name="chat_number" value="{{ chat_number }}">
+                <button type="submit">Chat #{{ chat_number }}</button>
             </form>
         </li>
     {% endfor %}

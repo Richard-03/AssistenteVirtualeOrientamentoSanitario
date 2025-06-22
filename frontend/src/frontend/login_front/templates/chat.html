@@ -16,7 +16,7 @@
 
         <form id="chat-form" class="chat-form" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
             <input type="hidden" name="client_id" value="{{ client_id }}">
-            <input type="hidden" name="chat_id" value="{{ chat_id }}">
+            <input type="hidden" name="chat_number" value="{{ chat_number }}">
             <input type="text" id="msg" name="msg" placeholder="Scrivi un messaggio..." required class="chat-input" style="flex: 1;">
             <button type="submit" class="chat-button">Invia</button>
         </form>
@@ -26,7 +26,11 @@
         {{ history | tojson }}
     </script>
 
+    
+
     <script>
+    // JS AGGIORNATO CON POSIZIONE DI SESSIONE
+    
     // preparo il form e gli elementi della pagina
     const form = document.getElementById("chat-form");
     const input = document.getElementById("msg");
@@ -34,7 +38,7 @@
     const historyDataTag = document.getElementById("chat-history-data");
     const chatHistory = JSON.parse(historyDataTag.textContent);
 
-    // stgorico messaggi
+    // storico messaggi
     chatHistory.forEach(msg => {
         const bubble = document.createElement("div");
         bubble.textContent = msg.sender + ": " + msg.text;
@@ -46,20 +50,18 @@
         chatBox.appendChild(bubble);
     });
 
-   
     chatBox.scrollTop = chatBox.scrollHeight;
 
-
-    form.addEventListener("submit", async (e) => {
+    form.addEventListener("submit", (e) => {
         e.preventDefault();
         const userMsg = input.value;
-        if (!userMsg.trim()) return; // non mando se è vuoto
+        if (!userMsg.trim()) return;
 
-        // disattivo input e bottone 
+        // disattivo input e bottone
         input.disabled = true;
         form.querySelector("button[type='submit']").disabled = true;
 
-        // inseriemnto messaggio 
+        // aggiunta bubble utente
         const userBubble = document.createElement("div");
         userBubble.textContent = userMsg;
         userBubble.style.backgroundColor = "#d1e7dd";
@@ -71,39 +73,58 @@
         chatBox.scrollTop = chatBox.scrollHeight;
         input.value = "";
 
-        try {
-           
-            const res = await fetch("/chat/msg", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    client_id: document.querySelector('[name="client_id"]').value,
-                    chat_id: document.querySelector('[name="chat_id"]').value,
-                    new_msg: userMsg
-                })
-            });
+        // funzione che invia il messaggio al backend
+        const sendMessage = async (lat = null, lon = null) => {
+            try {
+                const res = await fetch("/chat/msg", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        client_id: document.querySelector('[name="client_id"]').value,
+                        chat_number: document.querySelector('[name="chat_number"]').value,
+                        new_msg: userMsg,
+                        latitude: lat,
+                        longitude: lon
+                    })
+                });
 
-            // se ok, prendo la risposta
-            const reply = await res.text();
+                const reply = await res.text();
 
-            const aiBubble = document.createElement("div");
-            aiBubble.textContent = reply;
-            aiBubble.style.backgroundColor = "#f8d7da";
-            aiBubble.style.margin = "5px 0";
-            aiBubble.style.padding = "0.5rem";
-            aiBubble.style.borderRadius = "5px";
-            aiBubble.style.textAlign = "left";
-            chatBox.appendChild(aiBubble);
-            chatBox.scrollTop = chatBox.scrollHeight;
+                const aiBubble = document.createElement("div");
+                aiBubble.textContent = reply;
+                aiBubble.style.backgroundColor = "#f8d7da";
+                aiBubble.style.margin = "5px 0";
+                aiBubble.style.padding = "0.5rem";
+                aiBubble.style.borderRadius = "5px";
+                aiBubble.style.textAlign = "left";
+                chatBox.appendChild(aiBubble);
+                chatBox.scrollTop = chatBox.scrollHeight;
 
-        } catch (error) {
-    
-            console.error("Errore nella richiesta:", error);
-        } finally {
-            // riattivazione dell input
-            input.disabled = false;
-            form.querySelector("button[type='submit']").disabled = false;
-            input.focus();
+            } catch (error) {
+                console.error("Errore nella richiesta:", error);
+            } finally {
+                input.disabled = false;
+                form.querySelector("button[type='submit']").disabled = false;
+                input.focus();
+            }
+        };
+
+        // provo a ottenere la posizione, altrimenti mando senza
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    sendMessage(lat, lon);
+                },
+                (error) => {
+                    console.warn("Geolocalizzazione non disponibile:", error);
+                    sendMessage(); // senza coordinate
+                }
+            );
+        } else {
+            console.warn("Geolocalizzazione non supportata dal browser.");
+            sendMessage(); // senza coordinate
         }
     });
     </script>

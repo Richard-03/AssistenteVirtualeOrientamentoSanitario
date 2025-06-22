@@ -42,12 +42,15 @@ def get_utenti_non_verificati():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore nel recupero utenti: {str(e)}")
 
-#get che prende in input un mail per cercare il tesserino associato alla mail
 
 def get_tesserino(email:str):
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../uploads"))
+    print("DEBUG: percorso: ",  os.path.abspath(os.path.join(os.path.dirname(__file__))))
+    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../login_iscrizione_medici/uploads"))
+    print("DEBUG: percorso trovato: ",  upload_dir)
+    # old: "../../../../uploads"
     for filename in os.listdir(upload_dir):
         if filename.startswith(email) and "tesserino" in filename:
+            print(f"Redirect verso: /uploads/{filename}")
             return RedirectResponse(url=f"/uploads/{filename}")
     raise HTTPException(status_code=404, detail="Tesserino non trovato")
 

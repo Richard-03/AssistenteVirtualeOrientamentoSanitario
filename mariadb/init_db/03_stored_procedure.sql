@@ -1,262 +1,4 @@
--- Creazione del database e selezione
-DROP DATABASE IF EXISTS user_db;
-CREATE DATABASE IF NOT EXISTS user_db;
 USE user_db;
-
-
---admin 
-CREATE TABLE IF NOT EXISTS Admin (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
-);
--- AREA PAZIENTE
-CREATE TABLE IF NOT EXISTS Cliente (
-    id INT AUTO_INCREMENT,
-    nome VARCHAR(20) NOT NULL,
-    cognome VARCHAR(20) NOT NULL,
-    indirizzo VARCHAR(255),
-    citta VARCHAR(100),
-    email VARCHAR(100) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    eta INT NOT NULL,
-    sesso ENUM('M', 'F', 'Altro') DEFAULT 'Altro',
-    peso DECIMAL(5,2) NOT NULL,
-    altezza DECIMAL(5,2) NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_cliente PRIMARY KEY (id),
-    CONSTRAINT uq_cliente_email UNIQUE (email),
-    CONSTRAINT chk_cliente_eta CHECK (eta >= 0),
-    CONSTRAINT chk_cliente_sesso CHECK (sesso IN ('M', 'F', 'Altro'))
-);
-
-CREATE TABLE IF NOT EXISTS IntolleranzaAlimentare (
-    id INT AUTO_INCREMENT,
-    id_cliente INT NOT NULL,
-    intolleranza VARCHAR(255) NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_intolleranza PRIMARY KEY (id),
-    CONSTRAINT fk_intolleranza_cliente FOREIGN KEY (id_cliente)
-        REFERENCES Cliente(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS CondizioniPatologichePregresse (
-    id INT AUTO_INCREMENT,
-    id_cliente INT NOT NULL,
-    condizione_preg VARCHAR(255) NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_cppregresse PRIMARY KEY (id),
-    CONSTRAINT fk_cppregresse_cliente FOREIGN KEY (id_cliente)
-        REFERENCES Cliente(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS CondizioniPatologicheFamiliari (
-    id INT AUTO_INCREMENT,
-    id_cliente INT NOT NULL,
-    condizione_fam VARCHAR(255) NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_cpfamiliari PRIMARY KEY (id),
-    CONSTRAINT fk_cpfamiliari_cliente FOREIGN KEY (id_cliente)
-        REFERENCES Cliente(id) ON DELETE CASCADE
-);
-
--- AREA MEDICO
-CREATE TABLE IF NOT EXISTS Medico (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(20) NOT NULL,
-    indirizzo VARCHAR(255) NOT NULL DEFAULT '',
-    cognome VARCHAR(20) NOT NULL,
-    codice_fiscale VARCHAR(16) NOT NULL,
-    numero_albo VARCHAR(20) NOT NULL,
-    citta_ordine VARCHAR(100),
-    data_iscrizione_albo DATE NOT NULL,
-    email VARCHAR(100) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    citta VARCHAR(100),
-    telefono VARCHAR(20),
-    url_sito VARCHAR(2083),
-    stato VARCHAR(20) DEFAULT 'Attivo',
-    verificato BOOLEAN NOT NULL DEFAULT 0,
-
-    -- Vincoli
-    CONSTRAINT uq_medico_email UNIQUE (email)
-    -- Gli altri vincoli come formati possono essere aggiunti se necessario
-);
-
-CREATE TABLE IF NOT EXISTS Specializzazione (
-    id INT AUTO_INCREMENT,
-    id_medico INT NOT NULL,
-    specializzazione VARCHAR(255) NOT NULL,
-    ranking DECIMAL(5,2) DEFAULT 0.00,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-    indirizzo VARCHAR(255) NOT NULL,
-    latitudine DECIMAL(10,7) NOT NULL,
-    longitudine DECIMAL(10,7) NOT NULL,
-
-    -- Vincoli
-    CONSTRAINT pk_specializzazione PRIMARY KEY (id),
-    CONSTRAINT fk_specializzazione_medico FOREIGN KEY (id_medico)
-        REFERENCES Medico(id) ON DELETE CASCADE,
-    CONSTRAINT chk_ranking CHECK (ranking >= 0 AND ranking <= 10.00)
-);
-
-
-
-CREATE TABLE IF NOT EXISTS Agenda (
-    id INT AUTO_INCREMENT,
-    id_medico INT NOT NULL,
-    appuntamento TIMESTAMP NOT NULL,
-    id_cliente INT NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_agenda PRIMARY KEY (id),
-    CONSTRAINT fk_agenda_medico FOREIGN KEY (id_medico)
-        REFERENCES Medico(id) ON DELETE CASCADE,
-    CONSTRAINT fk_agenda_cliente FOREIGN KEY (id_cliente)
-        REFERENCES Cliente(id) -- ON DELETE SET NULL
-);
-
-
--- AREA CHAT
-CREATE TABLE IF NOT EXISTS Chat(
-    id INT AUTO_INCREMENT,
-    id_cliente INT NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-    
-    CONSTRAINT pk_chat PRIMARY KEY (id),
-    CONSTRAINT fk_chat_cliente FOREIGN KEY (id_cliente) REFERENCES Cliente(id) 
-);
-
-
-
-
-
--- AREA APPUNTAMENTO
-CREATE TABLE IF NOT EXISTS Appuntamento (
-    id INT AUTO_INCREMENT,
-    id_cliente INT NOT NULL,
-    id_medico INT NOT NULL,
-    data_registrazione TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    data_appuntamento TIMESTAMP NOT NULL,
-    stato ENUM('Prenotato', 'Effettuato', 'Eliminato') DEFAULT 'Prenotato',
-    patologia_individuata VARCHAR(255) NULL,
-
-    -- Vincoli
-    CONSTRAINT pk_appuntamento PRIMARY KEY (id),
-    CONSTRAINT fk_appuntamento_cliente FOREIGN KEY (id_cliente)
-        REFERENCES Cliente(id) ON DELETE CASCADE,
-    CONSTRAINT fk_appuntamento_medico FOREIGN KEY (id_medico)
-        REFERENCES Medico(id) ON DELETE CASCADE,
-    CONSTRAINT chk_data_appuntamento CHECK (data_appuntamento > data_registrazione),
-    CONSTRAINT chk_patologia_stato CHECK (
-        (stato = 'Effettuato' AND patologia_individuata IS NOT NULL) OR
-        (stato IN ('Prenotato', 'Eliminato') AND patologia_individuata IS NULL)
-    )
-);  
-
--- Tabella per tracciare il ranking degli appuntamenti
-CREATE TABLE IF NOT EXISTS RankingAppuntamento (
-    id INT AUTO_INCREMENT,
-    id_appuntamento INT NOT NULL,
-    id_medico INT NOT NULL,
-    voto DECIMAL(3,2) NOT NULL,
-    commento TEXT,
-    data_ranking TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
-
-    -- Vincoli
-    CONSTRAINT pk_ranking_appuntamento PRIMARY KEY (id),
-    CONSTRAINT fk_ranking_appuntamento FOREIGN KEY (id_appuntamento)
-        REFERENCES Appuntamento(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ranking_medico FOREIGN KEY (id_medico)
-        REFERENCES Medico(id) ON DELETE CASCADE,
-    CONSTRAINT uq_ranking_appuntamento UNIQUE (id_appuntamento),
-    CONSTRAINT chk_voto CHECK (voto >= 1.00 AND voto <= 10.00)
-);
-
--- CREAZIONE VIEW CORRETTE
-DROP VIEW IF EXISTS view_appuntamento_attivo;
-CREATE VIEW view_appuntamento_attivo AS
-SELECT
-    a.id AS id_appuntamento,
-    c.id AS id_cliente,
-    c.nome AS nome_cliente,
-    c.cognome AS cognome_cliente,
-    m.id AS id_medico,
-    m.nome AS nome_medico,
-    m.cognome AS cognome_medico,
-    a.data_registrazione AS data_registrazione,
-    a.data_appuntamento AS data_appuntamento,
-    a.stato AS stato_appuntamento,
-    a.patologia_individuata AS patologia_individuata,
-    CASE WHEN ra.id IS NOT NULL THEN 'Si' ELSE 'No' END AS ha_ranking
-FROM Cliente c 
-JOIN Appuntamento a ON (c.id = a.id_cliente)
-JOIN Medico m ON (m.id = a.id_medico)
-LEFT JOIN RankingAppuntamento ra ON (a.id = ra.id_appuntamento AND ra.stato = 'Attivo')
-WHERE a.stato IN ('Prenotato', 'Effettuato') 
-    AND c.stato = 'Attivo' 
-    AND m.stato = 'Attivo';
-
--- View per visualizzare i ranking dei medici con dettagli appuntamenti
-DROP VIEW IF EXISTS view_ranking_medico;
-CREATE VIEW view_ranking_medico AS
-SELECT
-    m.id AS id_medico,
-    m.nome AS nome_medico,
-    m.cognome AS cognome_medico,
-    s.specializzazione AS specializzazione,
-    s.ranking AS ranking_medio,
-    COUNT(ra.id) AS numero_valutazioni,
-    AVG(ra.voto) AS voto_medio_effettivo,
-    MIN(ra.voto) AS voto_minimo,
-    MAX(ra.voto) AS voto_massimo
-FROM Medico m
-JOIN Specializzazione s ON (m.id = s.id_medico)
-LEFT JOIN RankingAppuntamento ra ON (m.id = ra.id_medico AND ra.stato = 'Attivo')
-WHERE m.stato = 'Attivo' AND s.stato = 'Attivo'
-GROUP BY m.id, s.id;
-
-DROP VIEW IF EXISTS view_dati_cliente_attivo;
-CREATE VIEW view_dati_cliente_attivo AS
-SELECT 
-    c.id AS id_cliente,
-    c.nome AS nome_cliente,
-    c.cognome AS cognome_cliente,
-    c.email AS email_cliente,
-    c.eta AS eta,
-    c.sesso AS sesso,
-    c.peso AS peso,
-    c.altezza AS altezza,
-    i.intolleranza AS intolleranza,
-    cpf.condizione_fam AS condizione_patologica_familiare,
-    cpp.condizione_preg AS condizione_patologica_pregressa
-FROM Cliente c 
-LEFT JOIN IntolleranzaAlimentare i ON (c.id = i.id_cliente AND i.stato = 'Attivo')
-LEFT JOIN CondizioniPatologicheFamiliari cpf ON (c.id = cpf.id_cliente AND cpf.stato = 'Attivo')
-LEFT JOIN CondizioniPatologichePregresse cpp ON (c.id = cpp.id_cliente AND cpp.stato = 'Attivo')
-WHERE c.stato = 'Attivo';
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -528,6 +270,390 @@ END//
 DELIMITER ;
 
 
+-- PROCEDURRE PER GESTIRE LE CHAT
+
+-- Creazione nuova Chat
+DELIMITER //
+
+CREATE PROCEDURE insert_chat(
+    IN p_id_cliente INT,
+    IN p_domanda VARCHAR(2000),
+    IN p_risposta VARCHAR(2000),
+    IN p_reparto_consigliato VARCHAR(255),
+    IN p_id_medico INT
+)
+BEGIN
+    DECLARE v_numero_chat INT DEFAULT 1;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Calcola il prossimo numero_chat per il cliente
+    SELECT COALESCE(MAX(numero_chat), 0) + 1 
+    INTO v_numero_chat
+    FROM Chat 
+    WHERE id_cliente = p_id_cliente 
+    AND stato = 'Attivo';
+    
+    -- Inserisce il nuovo record
+    INSERT INTO Chat (
+        id_cliente,
+        numero_chat,
+        domanda,
+        risposta,
+        reparto_consigliato,
+        id_medico,
+        stato
+    ) VALUES (
+        p_id_cliente,
+        v_numero_chat,
+        p_domanda,
+        p_risposta,
+        p_reparto_consigliato,
+        id_medico,
+        'Attivo'
+    );
+    
+    COMMIT;
+    
+    -- Restituisce l'ID del record inserito e il numero_chat assegnato
+    SELECT LAST_INSERT_ID() as id_inserito, v_numero_chat as numero_chat_assegnato;
+    
+END //
+
+DELIMITER ;
+
+-- Scrittura su vecchia Chat
+DELIMITER //
+
+CREATE PROCEDURE update_chat(
+    IN p_id_cliente INT,
+    IN p_numero_chat INT,
+    IN p_domanda VARCHAR(2000),
+    IN p_risposta VARCHAR(2000),
+    IN p_reparto_consigliato VARCHAR(255),
+    IN p_id_medico INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Inserisce sempre un nuovo record con il numero_chat specificato
+    INSERT INTO Chat (
+        id_cliente,
+        numero_chat,
+        domanda,
+        risposta,
+        reparto_consigliato,
+        id_medico,
+        stato
+    ) VALUES (
+        p_id_cliente,
+        p_numero_chat,
+        p_domanda,
+        p_risposta,
+        p_reparto_consigliato,
+        p_id_medico,
+        'Attivo'
+    );
+    
+    COMMIT;
+    
+    -- Restituisce l'ID del nuovo record inserito
+    SELECT 
+        LAST_INSERT_ID() as id_inserito,
+        p_id_cliente as id_cliente,
+        p_numero_chat as numero_chat,
+        p_id_medico as id_medico,
+        'Nuovo messaggio aggiunto alla chat' as messaggio;
+    
+END //
+
+DELIMITER ;
+
+-- STORED PROCEDURES PER GESTIRE LA TABELLA AGENDA
+
+-- Procedure per inserire un nuovo appuntamento in agenda
+-- Se esiste già un record eliminato con gli stessi dati, lo riattiva
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS insert_appuntamento//
+
+CREATE PROCEDURE insert_appuntamento(
+    IN p_id_medico INT,
+    IN p_appuntamento TIMESTAMP,
+    IN p_id_cliente INT
+)
+BEGIN
+    DECLARE existing_id INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verifica se esiste già un record con gli stessi dati ma stato 'Eliminato'
+    SELECT id INTO existing_id
+    FROM Agenda 
+    WHERE id_medico = p_id_medico 
+        AND appuntamento = p_appuntamento 
+        AND id_cliente = p_id_cliente 
+        AND stato = 'Eliminato'
+    LIMIT 1;
+    
+    IF existing_id > 0 THEN
+        -- Se esiste un record eliminato, riattivalo
+        UPDATE Agenda 
+        SET stato = 'Attivo'
+        WHERE id = existing_id;
+        
+        COMMIT;
+        
+        SELECT 
+            existing_id AS id_appuntamento,
+            'Appuntamento riattivato' AS messaggio,
+            p_id_medico AS id_medico,
+            p_appuntamento AS appuntamento,
+            p_id_cliente AS id_cliente;
+    ELSE
+        -- Verifica che non esista già un appuntamento attivo con gli stessi dati
+        IF EXISTS (
+            SELECT 1 FROM Agenda 
+            WHERE id_medico = p_id_medico 
+                AND appuntamento = p_appuntamento 
+                AND id_cliente = p_id_cliente 
+                AND stato = 'Attivo'
+        ) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento già esistente e attivo per questi parametri';
+        END IF;
+        
+        -- Verifica che il medico esista e sia attivo
+        IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non attivo';
+        END IF;
+        
+        -- Verifica che il cliente esista e sia attivo
+        IF NOT EXISTS (SELECT 1 FROM Cliente WHERE id = p_id_cliente AND stato = 'Attivo') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
+        END IF;
+        
+        -- Verifica che la data dell'appuntamento sia futura
+        IF p_appuntamento <= NOW() THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "La data dell'appuntamento deve essere futura";
+        END IF;
+        
+        -- Inserisci il nuovo appuntamento
+        INSERT INTO Agenda (
+            id_medico,
+            appuntamento,
+            id_cliente,
+            stato
+        ) VALUES (
+            p_id_medico,
+            p_appuntamento,
+            p_id_cliente,
+            'Attivo'
+        );
+        
+        COMMIT;
+        
+        SELECT 
+            LAST_INSERT_ID() AS id_appuntamento,
+            'Nuovo appuntamento creato' AS messaggio,
+            p_id_medico AS id_medico,
+            p_appuntamento AS appuntamento,
+            p_id_cliente AS id_cliente;
+    END IF;
+    
+END//
+
+DELIMITER ;
+
+
+-- Procedure per eliminare logicamente un appuntamento dall'agenda
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS elimina_appuntamento_logico//
+
+CREATE PROCEDURE elimina_appuntamento_logico(
+    IN p_id_appuntamento INT
+)
+BEGIN
+    DECLARE appuntamento_count INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verifica che l'appuntamento esista e sia attivo
+    SELECT COUNT(*) INTO appuntamento_count
+    FROM Agenda 
+    WHERE id = p_id_appuntamento AND stato = 'Attivo';
+    
+    IF appuntamento_count = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o già eliminato';
+    END IF;
+    
+    -- Elimina logicamente l'appuntamento
+    UPDATE Agenda 
+    SET stato = 'Eliminato'
+    WHERE id = p_id_appuntamento;
+    
+    COMMIT;
+    
+    SELECT 
+        p_id_appuntamento AS id_appuntamento_eliminato,
+        'Appuntamento eliminato logicamente' AS messaggio;
+    
+END//
+
+DELIMITER ;
+
+
+-- Procedure aggiuntiva per riattivare un appuntamento eliminato
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS riattiva_appuntamento//
+
+CREATE PROCEDURE riattiva_appuntamento(
+    IN p_id_appuntamento INT
+)
+BEGIN
+    DECLARE appuntamento_count INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verifica che l'appuntamento esista e sia eliminato
+    SELECT COUNT(*) INTO appuntamento_count
+    FROM Agenda 
+    WHERE id = p_id_appuntamento AND stato = 'Eliminato';
+    
+    IF appuntamento_count = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o già attivo';
+    END IF;
+    
+    -- Riattiva l'appuntamento
+    UPDATE Agenda 
+    SET stato = 'Attivo'
+    WHERE id = p_id_appuntamento;
+    
+    COMMIT;
+    
+    SELECT 
+        p_id_appuntamento AS id_appuntamento_riattivato,
+        'Appuntamento riattivato' AS messaggio;
+    
+END//
+
+DELIMITER ;
+
+
+-- Procedure per eliminare logicamente tutti gli appuntamenti di un medico
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS elimina_appuntamenti_medico//
+
+CREATE PROCEDURE elimina_appuntamenti_medico(
+    IN p_id_medico INT
+)
+BEGIN
+    DECLARE appuntamenti_eliminati INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Elimina logicamente tutti gli appuntamenti attivi del medico
+    UPDATE Agenda 
+    SET stato = 'Eliminato'
+    WHERE id_medico = p_id_medico AND stato = 'Attivo';
+    
+    -- Conta quanti appuntamenti sono stati eliminati
+    SET appuntamenti_eliminati = ROW_COUNT();
+    
+    COMMIT;
+    
+    SELECT 
+        p_id_medico AS id_medico,
+        appuntamenti_eliminati AS appuntamenti_eliminati,
+        'Appuntamenti del medico eliminati logicamente' AS messaggio;
+    
+END//
+
+DELIMITER ;
+
+
+-- Procedure per eliminare logicamente tutti gli appuntamenti di un cliente
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS elimina_appuntamenti_cliente//
+
+CREATE PROCEDURE elimina_appuntamenti_cliente(
+    IN p_id_cliente INT
+)
+BEGIN
+    DECLARE appuntamenti_eliminati INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Elimina logicamente tutti gli appuntamenti attivi del cliente
+    UPDATE Agenda 
+    SET stato = 'Eliminato'
+    WHERE id_cliente = p_id_cliente AND stato = 'Attivo';
+    
+    -- Conta quanti appuntamenti sono stati eliminati
+    SET appuntamenti_eliminati = ROW_COUNT();
+    
+    COMMIT;
+    
+    SELECT 
+        p_id_cliente AS id_cliente,
+        appuntamenti_eliminati AS appuntamenti_eliminati,
+        'Appuntamenti del cliente eliminati logicamente' AS messaggio;
+    
+END//
+
+DELIMITER ;
+
+
+
+
+
+
+
+
 -- PROCEDURE PER GESTIRE GLI APPUNTAMENTI
 
 -- Procedure per completare un appuntamento con diagnosi
@@ -793,6 +919,22 @@ END//
 
 DELIMITER ;
 
+
+
+-- eliminate procedure per MedicoSuggerito
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- ESEMPI DI USO DELLE STORED PROCEDURE
 
 -- Esempio 1: Cliente con intolleranze multiple
@@ -880,3 +1022,79 @@ DELIMITER ;
 --         SELECT 1 FROM RankingAppuntamento ra 
 --         WHERE ra.id_appuntamento = a.id AND ra.stato = 'Attivo'
 --     );
+
+
+-- ESEMPI DI UTILIZZO DELLE STORED PROCEDURE
+
+/*
+-- Esempio 1: Inserire un nuovo appuntamento
+CALL insert_appuntamento(1, '2024-12-20 14:30:00', 1);
+
+-- Esempio 2: Tentare di inserire un duplicato (dovrebbe dare errore)
+CALL insert_appuntamento(1, '2024-12-20 14:30:00', 1);
+
+-- Esempio 3: Eliminare logicamente un appuntamento
+CALL elimina_appuntamento_logico(1);
+
+-- Esempio 4: Tentare di inserire lo stesso appuntamento dopo l'eliminazione (dovrebbe riattivarlo)
+CALL insert_appuntamento(1, '2024-12-20 14:30:00', 1);
+
+-- Esempio 5: Riattivare manualmente un appuntamento eliminato
+CALL riattiva_appuntamento(1);
+
+-- Esempio 6: Eliminare tutti gli appuntamenti di un medico
+CALL elimina_appuntamenti_medico(1);
+
+-- Esempio 7: Eliminare tutti gli appuntamenti di un cliente
+CALL elimina_appuntamenti_cliente(1);
+*/
+
+
+-- QUERY UTILI PER MONITORARE LA TABELLA AGENDA
+
+/*
+-- Visualizzare tutti gli appuntamenti attivi
+SELECT 
+    a.id,
+    CONCAT(m.nome, ' ', m.cognome) AS medico,
+    a.appuntamento,
+    CONCAT(c.nome, ' ', c.cognome) AS cliente,
+    a.stato
+FROM Agenda a
+JOIN Medico m ON a.id_medico = m.id
+JOIN Cliente c ON a.id_cliente = c.id
+WHERE a.stato = 'Attivo'
+ORDER BY a.appuntamento;
+
+-- Visualizzare tutti gli appuntamenti (anche eliminati)
+SELECT 
+    a.id,
+    CONCAT(m.nome, ' ', m.cognome) AS medico,
+    a.appuntamento,
+    CONCAT(c.nome, ' ', c.cognome) AS cliente,
+    a.stato
+FROM Agenda a
+JOIN Medico m ON a.id_medico = m.id
+JOIN Cliente c ON a.id_cliente = c.id
+ORDER BY a.appuntamento, a.stato;
+
+-- Contare appuntamenti per stato
+SELECT 
+    stato,
+    COUNT(*) as numero_appuntamenti
+FROM Agenda
+GROUP BY stato;
+
+-- Visualizzare appuntamenti futuri di un medico specifico
+SELECT 
+    a.id,
+    a.appuntamento,
+    CONCAT(c.nome, ' ', c.cognome) AS cliente,
+    a.stato
+FROM Agenda a
+JOIN Cliente c ON a.id_cliente = c.id
+WHERE a.id_medico = 1 
+    AND a.appuntamento > NOW()
+    AND a.stato = 'Attivo'
+ORDER BY a.appuntamento;
+*/

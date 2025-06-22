@@ -99,8 +99,6 @@ def subscribe(cliente:ClienteModel):
         #criptazione della password
         password_criptata = bcrypt.hashpw(cliente.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-        print("erorre prima blocco")
-
         #creazione della query che usero per la store procedure
         query_call = f"""CALL insert_cliente_completo(
             {format_value(cliente.nome)}, {format_value(cliente.cognome)}, {format_value(cliente.indirizzo)}, {format_value(cliente.citta)},
@@ -110,8 +108,6 @@ def subscribe(cliente:ClienteModel):
             {format_value(farmaci_str)}
 
         )"""
-
-        print("errore dopo qui")
 
         try:
             execute_query(conn, query_call)

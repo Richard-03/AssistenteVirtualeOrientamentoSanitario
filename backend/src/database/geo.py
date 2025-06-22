@@ -6,12 +6,14 @@ from geopy.distance import geodesic
 from geopy.exc import GeocoderTimedOut
 import time
 import os
-from typing import Dict, Tuple, List, Any
+from typing import Dict, Optional, Tuple, List, Any
 import folium
 
 MAP_FILENAME = "..", "data", "mappa_medici.html"
 
-def fetch_drs_position_info(specialization: str = None) -> List[Dict[str, str]]:
+
+# TODO: SPOSTARE QUESTA FUNZIONE NELLE INTERAZIONI DI CHAT PERCHé QUI NON è PIù LOGIAMENTE CONNESSA
+def fetch_drs_info(specialization: str = None) -> List[Dict[str, str]]:
     """
     Retrieve info about doctors about:
     - id
@@ -22,6 +24,7 @@ def fetch_drs_position_info(specialization: str = None) -> List[Dict[str, str]]:
     - indirizzo
     - latitudine
     - lognitudine
+    - ranking
     Args:
         specialization (str): filter by specifying a particular field of medicine
     Returns:
@@ -32,9 +35,9 @@ def fetch_drs_position_info(specialization: str = None) -> List[Dict[str, str]]:
         cursor: mariadb.Cursor
         # TODO: io faccio il join, da modificare: più utile se si fa una view e poi si cattura l'informazione dalla view
         if not specialization: 
-            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico")
+            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico")
         else:
-            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico WHERE s.specializzazione = ?", (specialization,))
+            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico WHERE s.specializzazione = ?", (specialization,))
         result = cursor.fetchall()
         # TODO: prendo queste informazioni, in realtà si può pensare di prendere solo id e indirizzo perche è noto che quando questa funzione viene lanciato latitudine e longitudine sono a valore nullo/0
         position_data = [{
@@ -45,14 +48,11 @@ def fetch_drs_position_info(specialization: str = None) -> List[Dict[str, str]]:
             "specializzazione": tup[4],
             "indirizzo": tup[5],
             "latitudine": float(tup[6]), 
-            "longitudine": float(tup[7])
+            "longitudine": float(tup[7]),
+            "ranking": float(tup[8])
         } for tup in result]
         return position_data
     
-
-
-
-
 
 
 def get_coordinates(address: str, max_attempts: int = 5, single_timeout:int = 5) -> Tuple[float, float]:
@@ -94,7 +94,7 @@ def compute_coordinates():
     # esistenza file o creazione fake db
     # la variabile cached_coords è/diventa nella forma {indirizzo: (latitudine, longitudine)}
 
-    position_data = fetch_drs_position_info()
+    position_data = fetch_drs_info()
     
     for dr in position_data:
         new_lat, new_long = get_coordinates(dr["indirizzo"])
@@ -113,15 +113,26 @@ def compute_coordinates():
 
     """
 
-def get_nearest_drs(client_address: str, specialization: str) -> List[Dict[str, Any]]:
+def get_nearest_drs(client_address: str, specialization: str, latitude: Optional[float], longitude: Optional[float]) -> List[Dict[str, Any]]:
+    """
+    Computes distance of each doctor of the given specialization using coordinates if available else using client_address.
+    Returns a list of dictionaries, each representing a doctor, with an extra field 'distanza_km', representing the distance in km from the
+    coordinates used for the client. 
+    """
 
-    # TODO: questa parte va integrata con JS per avere possibilità di scegliere posizione di casa o posizioine corrente del browser        
-    client_address_coord = get_coordinates(client_address)
-    
-    drs_pos_info = fetch_drs_position_info(specialization)
+    if not latitude or not longitude:        
+        client_address_coord = get_coordinates(client_address)
+    else:
+        client_address_coord = (latitude, longitude)
+
+    drs_pos_info = fetch_drs_info(specialization)
     for dr in drs_pos_info:
         dr_coord = (dr["latitudine"], dr["longitudine"])
         dr["distanza_km"] = geodesic(client_address_coord, dr_coord).km if dr_coord else float("inf")
+    
+    import pprint
+    pprint.pprint(drs_pos_info)
+    
     return sorted(drs_pos_info, key = lambda x: x["distanza_km"])
     
 
@@ -133,7 +144,7 @@ def create_map_html_file(client_address: str, nearest: List[Dict[str, float]], m
         client_address (str): 
         nearest (List[Dict[str, float]]): sorted list of doctors
         map_name (str, optional): use this to give name, should be used to differentiate based on specialization. DO NOT specify the extension. Defaults to None.
-        limit (int, optional): how many points to display on the map. Defaults to 20.
+        limit (int, optional): how many points to display on the map. By default 20.
     """
     
     client_address_coord = get_coordinates(client_address)

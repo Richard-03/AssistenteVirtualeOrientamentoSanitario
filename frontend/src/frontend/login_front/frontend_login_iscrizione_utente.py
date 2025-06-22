@@ -119,16 +119,18 @@ def login(request: Request,
     return templates.TemplateResponse("chat.html", {"request": request})
  """
 
-def chat_page(request: Request, client_id: int, chat_id: int):
-    res = requests.get(API_URL + "resume_chat", params={"client_id": client_id, "chat_id": chat_id})
+def chat_page(request: Request, client_id: int, chat_number: int):
+    print(f"CHIAMATA A RESUME_CHAT CON NUMERO CHAT= {chat_number}")
+    res = requests.get(API_URL + "resume_chat", params={"client_id": client_id, "chat_number": chat_number})
     if res.status_code == 404:
         return HTMLResponse("Chat non trovata", status_code=404)
 
     history = res.json()
+
     return templates.TemplateResponse("chat.html", {
         "request": request,
         "client_id": client_id,
-        "chat_id": chat_id,
+        "chat_number": chat_number,
         "history": history
     })
 
@@ -136,6 +138,7 @@ def chat_page(request: Request, client_id: int, chat_id: int):
 
 # Endpoint POST per inviare un messaggio alla chat (inoltra la richiesta al backend)
 def chat_msg(request: Request, data: dict = Body(...)):
+    print(f"QUI CI ARRIVIAMO con data {data}")
     response = requests.post(API_URL + "chat/msg", json=data)
     return response.text
 
@@ -146,7 +149,7 @@ def resume_all_chat(request: Request, client_id: int = Query(...)):
     if res.status_code == 404:
         return RedirectResponse(f"/chat/new?client_id={client_id}", 302)
 
-    chat_list = res.json()  # lista di chat_id + metadata
+    chat_list = res.json()  # lista di chat_number + metadata
     print("Lista di id trovata: ", chat_list)
     return templates.TemplateResponse("chat_list.html", {
         "request": request,

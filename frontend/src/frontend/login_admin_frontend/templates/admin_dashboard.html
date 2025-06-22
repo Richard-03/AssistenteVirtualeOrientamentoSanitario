@@ -30,7 +30,8 @@
           <td>{{ utente.cognome }}</td>
           <td>{{ utente.email }}</td>
           <td>
-            <a href="{{ api_url }}/admin/tesserino/{{ utente.email }}" target="_blank">Visualizza</a>
+            <!--{{ api_url }} già contiene '/' -->
+            <a href="{{ api_url }}admin/tesserino/{{ utente.email }}" target="_blank">Visualizza</a>
           </td>
           <td>
             <form method="post" action="/admin/verifica">

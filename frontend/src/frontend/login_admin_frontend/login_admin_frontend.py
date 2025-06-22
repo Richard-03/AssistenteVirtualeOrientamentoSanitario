@@ -16,6 +16,7 @@ templates = Jinja2Templates(directory=TEMPLATE_DIR)
 
 # API_URL="http://localhost:8000/"
 API_URL="http://backend_name:8000/"
+BROWSER_API_URL="http://localhost:8000/"
 
 def admin_login_form(request: Request):
     return templates.TemplateResponse("admin_login.html", {"request": request})
@@ -35,7 +36,7 @@ def admin_dashboard(request: Request):
         utenti = response.json()["da_verificare"]
     except Exception as e:
         raise HTTPException(status_code=500, detail="Errore nel caricamento dei medici")
-    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "utenti": utenti, "api_url": API_URL})
+    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "utenti": utenti, "api_url": BROWSER_API_URL})
 
 
 def verifica_medico(request:Request,email:str=Form(...)):

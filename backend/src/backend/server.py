@@ -1,12 +1,12 @@
 import os
-from database.chatting import create_chat_and_msg_tables, fetch_db_pure_chat, fetch_all_chats_for_client
-from backend.llm_interaction.interaction import llm_interact 
+from database.chatting import fetch_db_pure_chat, fetch_all_chats_for_client, get_last_chat_number
+from backend.llm_interaction.interaction import init_vma, llm_interact 
 from models.models import NewChatRequest, MessageRequest
 from backend.login_back_utenti.login import login, subscribe
 from backend.login_back_utenti.modules import LoginModel, ClienteModel
 from fastapi import FastAPI, HTTPException, status, Form, UploadFile, File
 from fastapi.staticfiles import StaticFiles
-from typing import List, Dict
+from typing import Any, List, Dict
 from backend.login_admin.admin import login_admin, get_tesserino, get_utenti_non_verificati, verifica_medico
 from backend.login_iscrizione_medici.login_iscrizione import subscribe_medico, login_medico, modifica_email, get_agenda_medico, elimina_appuntamento as elimina_appuntamento_logica
 from backend.login_iscrizione_medici.modules import AppuntamentoDeleteRequest, MedicoLoginModel
@@ -22,11 +22,16 @@ app.mount("/uploads", StaticFiles(directory=os.path.join(os.path.dirname(__file_
 
 @app.post("/chat/msg")
 def msg_to_llm(data: MessageRequest) -> str:
+    print("ANCHE QUI CI ARRIVIAMO ")
     """Wrapper for LLM interaction"""
     try:
-        llm_response = llm_interact(client_id=data.client_id,
-                     chat_id=data.chat_id,
-                     new_msg=data.new_msg)
+        llm_response = llm_interact(
+            client_id=data.client_id,
+            chat_number=data.chat_number,
+            new_msg=data.new_msg,
+            latitude=data.latitude,     # aggiunto per posizione dinamica, può essere None
+            longitude=data.longitude    # //  
+        )
         print("llm_response esiste = ", bool(llm_response))
         return llm_response
     except HTTPException as e:
@@ -40,8 +45,11 @@ def msg_to_llm(data: MessageRequest) -> str:
 def new_chat(data: NewChatRequest) -> int:
     """Wrapper for initializzation of chat db structures"""
     try:
-        chat_id = create_chat_and_msg_tables(data.client_id)
-        return chat_id
+        last_chat_number = get_last_chat_number(data.client_id)
+        # se l'ultima è #chat = N e voglio una nuova sarà #chat = N + 1
+        next_chat_number = last_chat_number + 1
+        init_vma(data.client_id, next_chat_number)
+        return next_chat_number 
     except Exception as e:
         print("Catturata eccezione in endpoint: new_chat: ", e, type(e))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Creazione tabelle dei messaggi fallita nel database")
@@ -58,10 +66,11 @@ def get_existing_chats(client_id: int) -> List[int]:
 
 
 @app.get("/resume_chat")
-def get_existing_chat(client_id:int, chat_id:int) -> List[Dict[str, str]]:
+def get_existing_chat(client_id:int, chat_number:int) -> List[Dict[str, Any]]:
     """Wrapper for fetching chat in the db. Returns the history of a chat."""
     try:
-        history = fetch_db_pure_chat(client_id, chat_id)
+
+        history = fetch_db_pure_chat(client_id, chat_number)
         print("Storia recuperata: ", history)
         return history
     except Exception as e:

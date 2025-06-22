@@ -153,19 +153,11 @@ def login_wrapper(  request: Request,
         print("Catturata eccezione: ", e, type(e))
         raise
 
-# SOSTITUZIONE
-""" @app.get("/chat")
-def chat_page_wrapper(request: Request):
-    try:
-        return chat_page(request)
-    except Exception as e:
-        print("Catturata eccezione: ", e, type(e))
-        raise """
-
 @app.get("/chat")
-def chat_page_wrapper(request: Request, client_id: int, chat_id: int):
+def chat_page_wrapper(request: Request, client_id: int, chat_number: int):
     try:
-        return chat_page(request, client_id, chat_id)
+        print(f"PROVANDO A FARE RESUME DI UNA CHAT PASSO # = {chat_number}")
+        return chat_page(request, client_id, chat_number)
     except Exception as e:
         print("Catturata eccezione: ", e, type(e))
         raise
@@ -181,8 +173,8 @@ def chat_msg_wrapper(request: Request, data: dict = Body(...)):
 # NUOVO ENDPOINT
 @app.post("/chat/new")
 def new_chat_front(request: Request, client_id: int = Form(...)):
-    chat_id = requests.post(API_URL + "chat", json={"client_id": client_id}).json()
-    return RedirectResponse(f"/chat?client_id={client_id}&chat_id={chat_id}", 302)
+    chat_number = requests.post(API_URL + "chat", json={"client_id": client_id}).json()
+    return RedirectResponse(f"/chat?client_id={client_id}&chat_number={chat_number}", 302)
 
 # NUOVO ENDOPOINT
 @app.get("/chat/resume_all")
@@ -192,25 +184,6 @@ def resume_all_chat_wrapper(request: Request, client_id: int = Query(...)):
     except Exception as e:
         print("Catturata eccezione: ", e, type(e))
         raise 
-
-# TODO: MODIFICARE QUELLO 0
-# NUOVO ENDPOINT
-@app.get("/chat/resume")
-def resume_chat_front(request: Request, client_id: int = Query(...)):
-    res = requests.get(API_URL + "resume_chat",
-                       params={"client_id": client_id, "chat_id": 0})  # oppure scegli la chat più recente
-    if res.status_code == 404:
-        # nessuna chat: rimandiamo a new_chat
-        return RedirectResponse(f"/chat/new?client_id={client_id}", 302)
-    history = res.json()
-    # passa history al template della chat
-    return templates.TemplateResponse("chat.html", {
-        "request": request,
-        "client_id": client_id,
-        "chat_id": history[0]["chat_id"],
-        "history": history,
-    })
-
 
 
 @app.get("/iscrizione_medico")

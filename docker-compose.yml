@@ -2,7 +2,7 @@
 version: '3.8'
 services:
   mariadb:
-    build: ./mariadb
+    image: mariadb:11.7.2-ubi9
     container_name: mariadb
     environment:
       MARIADB_ROOT_PASSWORD: userdb
@@ -15,7 +15,7 @@ services:
       - "3307:3306" # CAMBIATA PORTA DELLA MACCHINA IN 3307
     volumes:
       - mariadb_data:/var/lib/mysql 
-      - ./mariadb/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./mariadb/init_db:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "appuser", "-puserdb"]
       interval: 30s
@@ -41,6 +41,25 @@ services:
       DB_NAME: user_db
     command: ["python", "popola_db.py"]
     restart: "no"
+
+  popola_admin:
+    build: ./script_admin
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - ./script_admin:/app
+    working_dir: /app
+    environment:
+      PYTHONUNBUFFERED: 1
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: appuser
+      DB_PASSWORD: userdb
+      DB_NAME: user_db
+    command: ["python", "crea_admin.py"]
+    restart: "no"
+
 
   ollama_service:
     image: ollama/ollama

@@ -2,115 +2,124 @@ import mariadb
 from .database import get_cursor
 from typing import List, Dict, Any
 import json
-from backend.llm_interaction.virtual_assistant import VirtualMedicalAssistant
+from backend.llm_interaction.utilities import consume_procedure_result
 
-def save_history(client_id: int, chat_id: int, llm_question: str, answer: str):
-    """
-    Save a new message in the database.
-    Args:
-        client_id (int): 
-        chat_id (int): 
-        llm_question (str): this string should be the full prompt, not only the message to keep track of every bit of information
-        answer (str): this string should be the answer from the llm without non-conversational information
-    """
+def save_history(client_id: int, chat_number: int, llm_question: str, answer: str, suggested_field:str = None, suggested_doc_id:int = None) -> None:
+    """Save a new message in the database. Also keeps updated the sidebar."""
+
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute(f"SELECT reparti_consigliati, id_medico FROM messaggi_{client_id}_{chat_id} where id = (SELECT MAX(id) FROM messaggi_{client_id}_{chat_id})")
+        print("IL NUOVO #CHAT è ", chat_number)
+        cursor.execute(f"SELECT reparto_consigliato, id_medico FROM Chat where id_cliente = ? and numero_chat = ?", (client_id, chat_number))
         result = cursor.fetchall()
         last_response = result[0][0] if result else None
-        doc_id = result[0][1] if result else None
-        cursor.execute(f"INSERT INTO messaggi_{client_id}_{chat_id} (domanda, risposta, reparti_consigliati, id_medico) VALUES (?, ?, ?, ?)", (llm_question, answer, last_response, doc_id))
+        last_doc_id = result[0][1] if result else None
 
-def create_chat_and_msg_tables(client_id: int) -> int:
-    """
-    Create a new chat, handling the database as follows:
-    - create a new entry for Chat 
-    - create relative new table to store messages
-    Then iniziliatizes the chat with proper instructions to the LLM
-    Args:
-        client_id (int):
-    Raises:
-        Exception: database connection issues or msg len error to store in the db
-    Returns:
-        int: chat id, on success
-    """
-    chat_id = -1
-    try:
-        with get_cursor() as cursor:
-            cursor: mariadb.Cursor
-            # crea una chat
-            cursor.execute(f"INSERT INTO Chat (id_cliente, stato) VALUES (?, 'Attivo')", (client_id,))  # DATA must be tuple/list
-            chat_id = cursor.lastrowid
-            # crea una storia per la chat
-            cursor.execute(f"CREATE TABLE IF NOT EXISTS messaggi_{client_id}_{chat_id} (\
-                        id INT AUTO_INCREMENT,\
-                        domanda VARCHAR(2000),\
-                        risposta VARCHAR(2000),\
-                        reparti_consigliati VARCHAR(255) DEFAULT NULL,\
-                        id_medico INT DEFAULT NULL,\
-                        constraint pk_messaggi_{client_id}_{chat_id} primary key (id),\
-                        constraint fk_messaggi_{client_id}_{chat_id}_medico FOREIGN KEY (id_medico) REFERENCES Medico(id)\
-                        )")
-            vma = VirtualMedicalAssistant()
-            initializaiton_history = vma.get_history()
-            save_history(client_id, chat_id, initializaiton_history[0]["content"], initializaiton_history[1]["content"])
-            print("Assistente virutale inizializzato...")
-    except Exception as e:
-        print("Catturata eccezione: ", e, type(e))
-        with get_cursor() as cur:
-            cur: mariadb.Cursor
-            cur.execute(f"DROP TABLE IF EXISTS messaggi_{client_id}_{chat_id}")
-            cur.execute(f"DELETE FROM Chat where id = ?", (chat_id, ))
-            print("Operazioni di cleanup sulla creazione chat fallita eseguite")
-    if chat_id:
-        return chat_id  
-    else:
-        raise Exception("Assitente virtuale non inizializzato correttamente")
+        response = suggested_field.title() if suggested_field else last_response
+        doc_id = suggested_doc_id if suggested_doc_id else last_doc_id
+
+        if chat_number != 0:
+            cursor.callproc("update_chat", (client_id, chat_number, llm_question, answer, response, doc_id))
+        else:
+            cursor.callproc("insert_chat", (client_id, llm_question, answer, response, doc_id))
+        consume_procedure_result(cursor)
+
+
+# TODO: ELIMINARE
+#        if response:
+#            _update_sidebar_table(client_id, chat_number, response)
+
+""" 
+def _update_sidebar_table(client_id:int, chat_number:int, specialization: str) -> None:
+    print("Aggiornamento tabella per sidebar in parallelo al salvataggio...")
+    with get_cursor() as cursor:
+        cursor:mariadb.Cursor
+        currently_possible_docs = fetch_specialists(specialization)
+        for doc in currently_possible_docs:
+            doc_id = doc["id"]
+            cursor.execute("SELECT doc_id FROM MedicoSuggerito where id_cliente = ? and id_chat = ?", (client_id, chat_number))
+            result = cursor.fetchall()
+            if result:
+                last = 
+            cursor.callproc("insert_medico_suggerito", (client_id, chat_number, doc_id))
+            consume_procedure_result(cursor)
+    print("Fine ggiornamento tabella per sidebar in parallelo al salvataggio") """
 
 
 def fetch_all_chats_for_client(client_id: int) -> List[int]:
-    """Returns the list of ids of all chat associated with a user, both active and not"""
+    """Returns the list of ids of all active chats associated with a user"""
     result = []
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute("SELECT id FROM Chat WHERE id_cliente = ?", (client_id, ))
+        cursor.execute("SELECT DISTINCT numero_chat FROM Chat WHERE id_cliente = ? and stato = 'Attivo' ORDER BY id", (client_id, ))
         res = cursor.fetchall() # lista del tipo [(id1, ), (id2, )...]
         for item in res:
             result.append(item[0])
     return result
 
 
-def fetch_existing_chat_history(client_id: int, chat_id: int) -> List[Dict[str, str]]:
+def fetch_existing_chat_history(client_id: int, chat_number: int) -> List[Dict[str, str]]:
     history = []
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute("SELECT * FROM Chat WHERE id = ? and id_cliente = ?", (chat_id, client_id))
+        cursor.execute("SELECT domanda, risposta FROM Chat WHERE numero_chat = ? and id_cliente = ? ORDER BY id", (chat_number, client_id))
         result = cursor.fetchall()
-        
-        if not result:
-            raise Exception("Tabella non trovata")
-        cursor.execute(f"SELECT domanda, risposta FROM messaggi_{client_id}_{chat_id}")    # List[Tuple]
-        result = cursor.fetchall()
-        
-        for question, answer in result:
+
+        if result:
+            # se esiste bisogna processare il saluto in maniera diversa
+                            
+            hellomsg = result[0][0]    # del tipo domanda = INIT, risposta = NULL
             history.append({
-                "role":"user",
-                "content": question
+                "role": "system",
+                "content": hellomsg
             })
-            history.append({
-                "role":"assistant",
-                "content": answer
-            })
+
+            result = result[1:]
+
+            for question, answer in result:
+                history.append({
+                    "role":"user",
+                    "content": question
+                })
+                history.append({
+                    "role":"assistant",
+                    "content": answer
+                })
+        else:
+            print("NESSUNA STORIA DA RECUPERARE NELLA FETCH EXISTING CHAT HISORY")
     return history
 
 
-def fetch_db_pure_chat(client_id: int, chat_id: int) -> List[Dict[str, str]]:
+def get_last_chat_number(client_id: int) -> int:
+    ret = 0
+    with get_cursor() as cursor:
+        cursor:mariadb.Cursor
+        cursor.execute("SELECT numero_chat from Chat where id_cliente = ?", (client_id, ))
+        result = cursor.fetchall()
+        if result:
+            ret = result[-1][0]
+            print(f"Recupero ultimo numero di chat associata a un utente: {ret}")
+        else:
+            print("Non ci sono risultati, quindi non ci sono chat iniziate dall'utente")
+    return ret
+
+
+def fetch_db_pure_chat(client_id: int, chat_number: int) -> List[Dict[str, str]]:
+    """Pure chat means only msg written by user without any wrapper used in the prompt to instruct the assitant.
+        Returns a structure in the form [{"sender": "AI"/"utente", "text": "example"}]"""
+
     pure_chat = []
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute(f"SELECT domanda, risposta FROM messaggi_{client_id}_{chat_id} where id > 1")  # scarta la prima, è di inizializzazione
+        cursor.execute(f"SELECT domanda, risposta FROM Chat where numero_chat = ? and id_cliente = ? ORDER BY id", (chat_number, client_id))  
         # [(domanda1, risposta1), (d2,r2)...]
         result = cursor.fetchall()
+
+        if result:    
+            # chat già inizializzata, bisogna scartare l'inizializzazione
+            pure_chat.append({"sender": "AI", "text": result[1][1]})
+            result = result[2:]
+
         for t in result:
             qa = {}
             qa["sender"] = "utente"
@@ -130,7 +139,7 @@ def _get_pure_text(testo_con_tripli_apici: str):
         ret = sections[1]
         return ret.strip()
     except Exception as e:
-        print("Eccezione durante l'estrazione del prompt puro: ", e, type(e))
+        print("Eccezione durante l'estrazione del prompt puro (Out of Range previsto solo per i primi 2 messaggi di inizializzazione): ", e, type(e))
         return ""
 
 
@@ -197,31 +206,19 @@ def fetch_specialists(specialization: str) -> List[Dict[str, str]]:
     return result
 
 
-def update_msg_with_suggested_field(client_id: int, chat_id: int, specializations: List[str]):
-    with get_cursor() as cursor:
-        cursor: mariadb.Cursor
-        # seleziono dall'ultimo messaggio inserito perché è l'informazione più aggiornata possibile
-        cursor.execute(f"UPDATE messaggi_{client_id}_{chat_id} SET reparti_consigliati = ? WHERE id = (SELECT MAX(id) FROM messaggi_{client_id}_{chat_id})", (specializations,))
-    print("Aggiornato lo specialista consigliato al messaggio corrente")
-
-def update_msg_with_selected_doc(client_id:int, chat_id: int, doc_id: int):
-    with get_cursor() as cursor:
-        cursor: mariadb.Cursor
-        cursor.execute(f"UPDATE messaggi_{client_id}_{chat_id}\
-                       SET id_medico = ?\
-                       WHERE id = (SELECT MAX(id) FROM messaggi_{client_id}_{chat_id})", (doc_id,))
-    print("Aggiornato il medico con cui si vuole fare la prenotazione")
 
 
-def fetch_suggested_field(client_id, chat_id) -> List[str]:
+def fetch_suggested_field(client_id: int, chat_number: int) -> str:
+    """Fetch the specialization saved in the db as last considered in the chat. Returns None if there isn't."""
     result = None
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute(f"SELECT reparti_consigliati FROM messaggi_{client_id}_{chat_id} WHERE id = (SELECT MAX(id) FROM messaggi_{client_id}_{chat_id})")
-        result = cursor.fetchall()
-    if result is not None:
-        print("Recuperato da db campo suggerito: ", result)
-        result = result[0][0]
+        cursor.execute(f"SELECT reparto_consigliato FROM Chat WHERE id_cliente = ? and numero_chat = ? ORDER BY id", (client_id, chat_number))
+        response = cursor.fetchall()
+    if response:
+        print("Recuperato da db campo suggerito: ", response)
+        result = response[-1][0]
+        print("Quindi restituito: ", result)
     return result
 
 
@@ -234,14 +231,16 @@ def fetch_client_address(client_id: int):
     return result
 
 
-def fetch_selected_doc(client_id:int, chat_id: int) -> Dict[str, Any]:
+def fetch_selected_doc(client_id:int, chat_number: int) -> Dict[str, Any]:
+    doc = None
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        cursor.execute(f"SELECT id_medico FROM messaggi_{client_id}_{chat_id}\
-                       WHERE id = (SELECT MAX(id) FROM messaggi_{client_id}_{chat_id})")
-        result = cursor.fetchall()[0][0]
-        print(f"Id medico reperito = {result}")
+        cursor.execute(f"SELECT DISTINCT id_medico FROM Chat where id_cliente = ? and numero_chat = ? and id_medico is not NULL ORDER BY id", (client_id, chat_number))
+        result = cursor.fetchall()
         if result:
+            # se c'è, interessa l'ultimo medico accordato con il cliente
+            result = result[-1][0]
+            print(f"Id medico reperito = {result}")
             # TODO: Medico.indirizzo preso, invece dell'indirizzo specifico di ciascuna specializzazione associata al medico
             cursor.execute("SELECT Medico.id, nome, cognome, email, telefono, url_sito, specializzazione, Medico.indirizzo FROM Medico join Specializzazione on Medico.id = id_medico WHERE Medico.id = ?", (result,))
             result = cursor.fetchall()[0]
@@ -255,9 +254,7 @@ def fetch_selected_doc(client_id:int, chat_id: int) -> Dict[str, Any]:
                 "specializzazione": result[6],
                 "indirizzo": result[7]
             }
-            return doc
-        else:
-            return None
+        return doc
 
 def fetch_client_info(client_id: int) -> Dict:
     client_data = {}
@@ -271,12 +268,12 @@ def fetch_client_info(client_id: int) -> Dict:
         client_data["nome"], client_data["cognome"], client_data["indirizzo"], client_data["email"] = result
     return client_data
         
-def get_doc_by_full_name(doc_name: str, doc_surname: str) -> List[Dict[str, Any]]:
+def get_doc_by_full_name_and_field(doc_name: str, doc_surname: str, field:str) -> List[Dict[str, Any]]:
     result = []
     with get_cursor() as cursor:
         cursor:mariadb.Cursor
         print("ATTENZIONE IN get_specific_doc: NON è SICURA IN CASI DI OMONIMIA, NON è PENSATA PER TRATTARLI")
-        cursor.execute("SELECT Medico.id, nome, cognome, email, telefono, url_sito, specializzazione, Medico.indirizzo FROM Medico join Specializzazione on Medico.id = id_medico WHERE Medico.nome = ? and Medico.cognome = ?", (doc_name, doc_surname))
+        cursor.execute("SELECT Medico.id, nome, cognome, email, telefono, url_sito, specializzazione, Medico.indirizzo FROM Medico join Specializzazione on Medico.id = id_medico WHERE Medico.nome = ? and Medico.cognome = ? and Specializzazione.specializzazione = ?", (doc_name, doc_surname, field))
         response_list = cursor.fetchall()
         for response in response_list:
             doc = {
@@ -290,30 +287,5 @@ def get_doc_by_full_name(doc_name: str, doc_surname: str) -> List[Dict[str, Any]
                 "indirizzo": response[7]
             }
         result.append(doc)
-    print("ritorna con successo uno o più dottori")
+        print("ritorna con successo uno o più dottori")
     return result
-
-
-
-def create_temp_table_for_dynamic_booking(client_id: int, chat_id: int, nearest_doc_by_field:List[Dict[str, Any]]) -> None:
-    """Responsible for automatic creation of the temp_{client_id}_{chat_id} tables used in dynamic side booking system"""
-    with get_cursor() as cursor:
-        cursor: mariadb.Cursor
-        cursor.execute(f"DROP TABLE IF EXISTS temp_{client_id}_{chat_id}")
-        cursor.execute(f"""CREATE TABLE temp_{client_id}_{chat_id} 
-                       (
-                       id INT PRIMARY KEY AUTO_INCREMENT,
-                       id_medico INT REFERENCES Medico(id), 
-                       nome VARCHAR(40),
-                       cognome VARCHAR(40), 
-                       specializzazione VARCHAR(255), 
-                       indirizzo VARCHAR(255), 
-                       distanza_km DECIMAL(10,7)
-                       )""")
-        query = f"""
-            INSERT INTO temp_{client_id}_{chat_id} (id_medico, nome, cognome, specializzazione, indirizzo, distanza_km)
-            VALUES (%(id)s, %(nome)s, %(cognome)s, %(specializzazione)s, %(indirizzo)s, %(distanza_km)s)
-        """
-        for doc in nearest_doc_by_field:
-            cursor.execute(query, doc)
-    

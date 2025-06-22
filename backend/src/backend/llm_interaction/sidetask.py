@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 import requests
 from datetime import datetime
+from .utilities import clean_string
 
 
 from config import *
@@ -17,24 +18,25 @@ class SideTaskClassifier():
         pass
 
     def extract_specialization_from_direct_request(self, specialization_sentence: str) -> str:
-        """From a given text in which it is specified what kind of doctor the client needs, extract the name of the specialization."""
+        """From a given text in which it is specified what kind of doctor the client needs, extract the name of the specialization. Returns title case"""
         prompt = f"Nel paragrafo tra tripli apici c'è la richiesta di prenotazione da parte di un cliente per un medico,\
  in cui è specificato il tipo di medico o la specializzazione di cui ha bisogno.\
  Restituisci il nome della specializzazione corrispondende. Per esempio se la frase contiene 'neurologo' scrivi 'neurologia' oppure 'nessuna' se non c'è.\
  Il testo da analizzare è il seguente:\
  '''{specialization_sentence}'''. Scrivi solo il nome della specializzazione o 'nessuna', non aggiungere altro."
         category = self._get_response(prompt)
-        return category
+        return category.title()
 
     def classify_specialization(self, specialization_sentence) -> str:
-        """From a given suggestion extract the name of the specialization."""
+        """From a given suggestion extract the name of the specialization in lowercase."""
         prompt = "Nel paragrafo tra tripli apici un assistente virutale per un servizio medico\
  consiglia ad un paziente di recarsi da un certo specialista. Vorrei che tu analizzassi tale messaggio\
  ed estraessi il tipo di specializzazione consigliata, ad esempio se leggi 'neurologo' tu devi rispondermi con 'neurologia'.\
+ Se l'assistente è in dubbio, sta valutando diverse opzioni o non è indicato il nome di uno specialista rispondi con 'nessuna'\
  Rispondi solo con il nome della specializzazione relativa al tipo di medico consigliato o 'nessuna' se non c'è. Ecco il testo da analizzare:\
- '''" + specialization_sentence + "'''. Se l'assistente è in dubbio e non è indicato il nome di uno specialista risponi con 'niente'"
+ '''" + specialization_sentence + "'''."
         category = self._get_response(prompt)
-        return category
+        return category.lower()
     
     def classify_booking_with_or_without_name(self, booking_sentence) -> str:
         """
@@ -42,7 +44,7 @@ class SideTaskClassifier():
         Nome: <nome>, Cognome:<cognome> or 'non indicato'
         """
         prompt = "Nel paragrafo tra tripli apici un utente chiede ad un assistente virtuale per un servizio sanitario di aiutarlo a prenotare una visita presso un medico.\
- Il tuo compito è analizzare il testo e capire se vi è indicato il nome ed il cognome del medico. Se ci sono rispondi 'Nome: qui il nome della persona senza appellativo, Cognome: qui il cognome della persona senza appellativo', se manca almeno uno dei due campi scrivi 'non indicato'.\
+ Il tuo compito è analizzare il testo e capire se vi è indicato il nome ed il cognome del medico. Se ci sono rispondi 'Nome: qui il nome della persona senza appellativo, Cognome: qui il cognome della persona senza appellativo', se manca almeno uno dei due campi o ci sono troppi medici indicati scrivi 'non indicato'.\
  Il testo è il seguente: '''" + booking_sentence + "'''. Rispondi solo con il formato 'Nome: qui il nome, Cognome: qui il cognome' o con 'non indicato'"
         category = self._get_response(prompt)
         return category
@@ -70,6 +72,7 @@ class SideTaskClassifier():
         except requests.HTTPError as e:
             print("ERRORE HTTP REQUEST:", e)
             raise
+        answer = clean_string(answer)
         return answer
     
     def correct_date_format(self, data_sentence) -> str:

@@ -1,21 +1,17 @@
 from pydantic import BaseModel
-from typing import Optional, List
-
-class LLM_Answer(BaseModel):
-    sintomi: List[str]
-    specialisti: List[str]
-    potresti_avere: List[str] = None
-    consigli_attuali: List[str] = None
+from typing import Optional
 
 class MessageRequest(BaseModel):
     client_id: int
-    chat_id: int
+    chat_number: int
     new_msg: str
+    # aggiunte per posizione dinamica
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class NewChatRequest(BaseModel):
     client_id: int
-    chat_id: Optional[int] = None
-
+    chat_number: Optional[int] = None
 
 class ChatRequest(NewChatRequest):
-    chat_id: int    # enforces passing a non null argument
+    chat_number: int    # enforces passing a non null argument

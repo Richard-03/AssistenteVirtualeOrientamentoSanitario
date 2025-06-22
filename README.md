@@ -1,7 +1,4 @@
 # Prossimamente:
-- cambiare la gestione delle chat: eliminare il corrente meccanismo di creazione di una tabella messaggi per ciasuna chat per ciasun utente
-  - utilizzare un'unica tabella del tipo chat(id_cliente, id_chat, id_messaggio, domanda, risposta, reparto_consigliato, id_medico) da filtrare quando bisogna richiamare la storia di una chat
-- esecuzione automatica di uno script per popolare gli admin
 - introduzione di un sistema di ranking
   - basato su recensioni (ritardate rispetto a un appuntamento)
 - visualizzazione di una mappa in cui saranno disposti il cliente e i primi K medici per posizione, mostrando anche il loro rank
