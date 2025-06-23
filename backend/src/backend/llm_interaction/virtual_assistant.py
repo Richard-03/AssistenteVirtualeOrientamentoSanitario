@@ -91,12 +91,6 @@ f"D'ora in poi sei l'assistente virtuale per un servizio sanitario;\
         Adds the complete prompt to the history of the assistant,
         send it to the ollama model,
         finally save the answer in the history of the assistant. 
-        Args:
-            prompt (str):
-        Raises:
-            Exception: error connecting with ollama service
-        Returns:
-            str: answer
         """
         self._add_to_history(prompt, role = "user")
         payload = {
@@ -197,7 +191,7 @@ f"Di seguito, il testo contenuto tra gli apici tripli contiene una richiesta di 
             response = self._get_response_by_prompt(
 f"Arriva la richiesta di ricerca di specialisti nelle vicinanze da parte dell'utente come segue:\
  '''{request}'''. Rispondi usando le seguenti informazioni: ''{data}''.\
- Elenca i medici nel formato 'nome cognome (specializzazione | indirizzo, distanza | score: ranking)'.\
+ Elenca i medici nel formato 'nome cognome (specializzazione | indirizzo, distanza | punteggio: ranking)'.\
  Suggerisci inoltre di controllare la mappa generata per avere una visione grafica delle informazioni.\
  Infine chedi se desidera prenotare una visita con uno dei medici mostrati, indicando eventualmente quale.\
  Se non ricevi dati comunica che non abbiamo specialisti registrati che rispondono alla richiesta."

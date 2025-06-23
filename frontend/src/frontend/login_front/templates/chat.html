@@ -26,7 +26,9 @@
         {{ history | tojson }}
     </script>
 
-    
+    <!--PROVA A LEGGERE MARKDOWN PER FORMATTAZIONE CARINA DEL TESTO-->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 
     <script>
     // JS AGGIORNATO CON POSIZIONE DI SESSIONE
@@ -91,7 +93,13 @@
                 const reply = await res.text();
 
                 const aiBubble = document.createElement("div");
-                aiBubble.textContent = reply;
+                
+                // PROVANDO A LEGGERE MARKDOWN
+
+                // aiBubble.textContent = reply;
+                aiBubble.innerHTML = marked.parse(reply);
+
+
                 aiBubble.style.backgroundColor = "#f8d7da";
                 aiBubble.style.margin = "5px 0";
                 aiBubble.style.padding = "0.5rem";

@@ -129,15 +129,12 @@ def get_nearest_drs(client_address: str, specialization: str, latitude: Optional
     for dr in drs_pos_info:
         dr_coord = (dr["latitudine"], dr["longitudine"])
         dr["distanza_km"] = geodesic(client_address_coord, dr_coord).km if dr_coord else float("inf")
-    
-    import pprint
-    pprint.pprint(drs_pos_info)
-    
+
     return sorted(drs_pos_info, key = lambda x: x["distanza_km"])
     
 
 
-def create_map_html_file(client_address: str, nearest: List[Dict[str, float]], map_name:str = None, limit:int = 20) -> None:
+def create_map_html_file(client_address: str, nearest: List[Dict[str, float]], latitude: Optional[float], longitude: Optional[float], map_name:str = None, limit:int = 20) -> None:
     """
     Create an html file displaying locations on the map.
     Args:
@@ -147,7 +144,10 @@ def create_map_html_file(client_address: str, nearest: List[Dict[str, float]], m
         limit (int, optional): how many points to display on the map. By default 20.
     """
     
-    client_address_coord = get_coordinates(client_address)
+    if not latitude or not longitude:        
+        client_address_coord = get_coordinates(client_address)
+    else:
+        client_address_coord = (latitude, longitude)
     # crea una mappa attorno all'indirizzo fissato
     mappa = folium.Map(location = client_address_coord, zoom_start=13)
     # marca l'indirizzo fissato

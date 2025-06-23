@@ -93,7 +93,7 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
 
     elif classified_task == vma.BOOKING_TASK_NO_DATE:
         print("PRENOTAZIONE VISITA SENZA DATA RECEPITA")
-        result = handle_booking_without_date(vma, client_id, chat_number, new_msg)
+        result = handle_booking_without_date(vma, client_id, chat_number, new_msg, latitude, longitude)
         
     elif classified_task == vma.BOOKING_TASK_WITH_DATE:
         print("PRENOTAZIONE VISITA CON DATA RECEPITA")
@@ -109,6 +109,7 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
     
 
+    result = clean_string(result)
     return result
 
 
@@ -142,7 +143,7 @@ def handle_search(vma: VirtualMedicalAssistant, specialization: str, client_id: 
     print(f"\nLATITUDINE E LONGITUDINE = ({latitude},{longitude})\n")
     nearest_docs_by_field = get_nearest_drs(client_address, specialization, latitude, longitude)
 
-    create_map_html_file(client_address, nearest_docs_by_field, map_name=f"mappa_{specialization}")
+    create_map_html_file(client_address, nearest_docs_by_field, latitude, longitude, map_name=f"mappa_{specialization}")
 
     # selezione delle info utili e ottenimento della risposta dall'assistente
     cleaned_data = [{k:v for k,v in doc.items() if k not in ("id", "id_specializzazione", "latitudine", "longitudine")} for doc in nearest_docs_by_field]
@@ -157,7 +158,7 @@ def handle_search(vma: VirtualMedicalAssistant, specialization: str, client_id: 
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
     return result
 
-def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, chat_number: int, new_msg: str) -> str:
+def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, chat_number: int, new_msg: str,  latitude: Optional[float], longitude: Optional[float]) -> str:
     # il campo o c'è già per conversazione pregressa (caso con o senza nome) o è esplicitato nel messaggio (caso senza nome)
     booking_classifier = SideTaskClassifier()
     field = fetch_suggested_field(client_id, chat_number)
@@ -175,7 +176,7 @@ def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, ch
     else:
         # reupera info sui medici vicini di quella categoria
         client_address = fetch_client_address(client_id)
-        nearest_docs_by_field = get_nearest_drs(client_address, field) if field != "non indicato" else []
+        nearest_docs_by_field = get_nearest_drs(client_address, field, latitude, longitude) if field != "non indicato" else []
 
         # vorrei prenotare ... 1) con un cardiologo/neurologo/... 2) con Nome Cognome
         full_name = booking_classifier.classify_booking_with_or_without_name(new_msg)

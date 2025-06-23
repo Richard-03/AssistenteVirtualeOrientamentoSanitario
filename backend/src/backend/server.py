@@ -69,9 +69,7 @@ def get_existing_chats(client_id: int) -> List[int]:
 def get_existing_chat(client_id:int, chat_number:int) -> List[Dict[str, Any]]:
     """Wrapper for fetching chat in the db. Returns the history of a chat."""
     try:
-
         history = fetch_db_pure_chat(client_id, chat_number)
-        print("Storia recuperata: ", history)
         return history
     except Exception as e:
         print("Catturata eccezione in endpoint: get_existing_chat: ", e, type(e))
