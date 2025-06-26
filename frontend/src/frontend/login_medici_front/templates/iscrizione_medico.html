@@ -22,10 +22,10 @@
         <input type="text" name="codice_fiscale" value="{{ valori_precedenti.get('codice_fiscale', '') }}" minlength="16" maxlength="16" required><br><br>
 
         <label>Numero Albo*:</label><br>
-        <input type="text" name="numero_albo" value="{{ valori_precedenti.get('numero_albo', '') }}"><br><br>
+        <input type="text" name="numero_albo" value="{{ valori_precedenti.get('numero_albo', '') }}" required><br><br>
 
         <label>Città Ordine*:</label><br>
-        <input type="text" name="citta_ordine" value="{{ valori_precedenti.get('citta_ordine', '') }}"><br><br>
+        <input type="text" name="citta_ordine" value="{{ valori_precedenti.get('citta_ordine', '') }}" required><br><br>
 
         <label>Data Iscrizione Albo*:</label><br>
         <input type="date" name="data_iscrizione_albo" value="{{ valori_precedenti.get('data_iscrizione_albo', '') }}" required><br><br>
@@ -33,8 +33,8 @@
         <label>Città*:</label><br>
         <input type="text" name="citta" value="{{ valori_precedenti.get('citta', '') }}" required><br><br>
 
-        <label>Indirizzo:</label><br>
-        <input type="text" name="indirizzo" value="{{ valori_precedenti.get('indirizzo', '') }}"><br><br>
+        <label>Indirizzo*:</label><br>
+        <input type="text" name="indirizzo" value="{{ valori_precedenti.get('indirizzo', '') }}" required><br><br>
 
         <label>Telefono:</label><br>
         <input type="text" name="telefono" value="{{ valori_precedenti.get('telefono', '') }}"><br><br>
@@ -42,17 +42,37 @@
         <label>URL del sito personale:</label><br>
         <input type="url" name="url_sito" value="{{ valori_precedenti.get('url_sito', '') }}"><br><br>
 
-        <label>Stato:</label><br>
-        <select name="stato">
-            <option value="Attivo" selected>Attivo</option>
-            <option value="Eliminato">Eliminato</option>
-        </select><br><br>
 
         <label>Email*:</label><br>
         <input type="email" name="email" value="{{ valori_precedenti.get('email', '') }}" required><br><br>
 
         <label>Password*:</label><br>
         <input type="password" name="password" value="{{ valori_precedenti.get('password', '') }}" required><br><br>
+
+        <!-- Disponibilità dinamica -->
+        <label>Disponibilità* (formato: yyyy-mm-dd hh:mm:ss):</label><br>
+        <input type="datetime-local" id="slot">
+
+        <button type="button" onclick="aggiungiSlot()">Aggiungi Slot</button><br><br>
+        <ul id="lista-slot"></ul>
+        <input type="hidden" name="disponibilita" id="disponibilita-json"><br><br>
+        <h3>Genera automaticamente slot in un intervallo orario</h3>
+
+        <label>Data:</label><br>
+        <input type="date" id="giorno_range"><br><br>
+
+        <label>Ora inizio:</label><br>
+        <input type="time" id="ora_inizio_range"><br><br>
+
+        <label>Ora fine:</label><br>
+        <input type="time" id="ora_fine_range"><br><br>
+
+        <label>Durata slot (in minuti):</label><br>
+        <input type="number" id="durata_slot_range" value="60" min="5" max="180"><br><br>
+
+        <button type="button" onclick="generaSlotDaRange()">Genera Slot da Intervallo</button><br><br>
+
+
 
         <label>Specializzazione*:</label><br>
 
@@ -189,7 +209,7 @@
 
         <input type="hidden" name="specializzazione" id="specializzazione-json">
 
-        <label>Carica Tesserino:</label><br>
+        <label>Carica Tesserino*:</label><br>
         <input type="file" name="tesserino" required><br><br>
 
         <!-- Passiamo anche il nome del file -->
@@ -285,5 +305,91 @@
         alert("Registrazione avvenuta con successo!");
     }
 </script>
+<script>
+    let disponibilita = [];
+
+    function aggiungiSlot() {
+        const slotInput = document.getElementById("slot");
+        const raw = slotInput.value.trim();
+        const slot = raw.replace("T", " ") + ":00"; // formato 'yyyy-mm-dd hh:mm:ss'
+
+        const formato = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+        if (!formato.test(slot)) {
+            alert("Formato data/ora non valido. Usa 'yyyy-mm-dd hh:mm:ss'");
+            return;
+        }
+
+        disponibilita.push(slot);
+        aggiornaListaSlot();
+        aggiornaCampoNascosto();
+        slotInput.value = "";
+    }
+
+    function aggiornaListaSlot() {
+        const ul = document.getElementById("lista-slot");
+        ul.innerHTML = "";
+        disponibilita.forEach((slot, index) => {
+            const li = document.createElement("li");
+            li.textContent = slot + " ";
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = "Rimuovi";
+            btn.onclick = () => {
+                disponibilita.splice(index, 1);
+                aggiornaListaSlot();
+                aggiornaCampoNascosto();
+            };
+            li.appendChild(btn);
+            ul.appendChild(li);
+        });
+    }
+
+    function aggiornaCampoNascosto() {
+        document.getElementById("disponibilita-json").value = JSON.stringify(disponibilita);
+    }
+</script>
+<script>
+function generaSlotDaRange() {
+    const giorno = document.getElementById("giorno_range").value;
+    const oraInizio = document.getElementById("ora_inizio_range").value;
+    const oraFine = document.getElementById("ora_fine_range").value;
+    const durata = parseInt(document.getElementById("durata_slot_range").value, 10);
+
+    if (!giorno || !oraInizio || !oraFine || isNaN(durata) || durata <= 0) {
+        alert("Compila tutti i campi correttamente.");
+        return;
+    }
+
+    const [anno, mese, giornoNum] = giorno.split("-").map(Number);
+    const [inizioOre, inizioMin] = oraInizio.split(":").map(Number);
+    const [fineOre, fineMin] = oraFine.split(":").map(Number);
+
+    const inizio = new Date(anno, mese - 1, giornoNum, inizioOre, inizioMin);
+    const fine = new Date(anno, mese - 1, giornoNum, fineOre, fineMin);
+
+    if (inizio >= fine) {
+        alert("L'orario di inizio deve precedere quello di fine.");
+        return;
+    }
+
+    let current = new Date(inizio);
+    while (current.getTime() + durata * 60000 <= fine.getTime()) {
+
+        const pad = n => n.toString().padStart(2, '0');
+        const isoSlot = `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}:00`;
+
+        if (!disponibilita.includes(isoSlot)) {
+            disponibilita.push(isoSlot);
+        }
+        current = new Date(current.getTime() + durata * 60000);
+    }
+
+    aggiornaListaSlot();
+    aggiornaCampoNascosto();
+}
+
+</script>
+
 </body>
 </html>

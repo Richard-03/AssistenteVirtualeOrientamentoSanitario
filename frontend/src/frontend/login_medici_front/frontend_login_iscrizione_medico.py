@@ -30,28 +30,30 @@ def home_iscrizione_medico(request:Request):
     return templates.TemplateResponse("iscrizione_medico.html", {"request": request, "valori_precedenti": {}})
 
 async def iscrizione_medico(
-    request:Request,
-    nome:str=Form(...),
-    cognome:str=Form(...),
-    codice_fiscale:str=Form(...),
-    numero_albo:str=Form(...),
-    citta_ordine:str=Form(...),
-    data_iscrizione_albo:str=Form(...),
-    citta:str=Form(...),
-    email:EmailStr=Form(...),
-    password:str=Form(...),
+    request: Request,
+    nome: str = Form(...),
+    cognome: str = Form(...),
+    codice_fiscale: str = Form(...),
+    numero_albo: str = Form(...),
+    citta_ordine: str = Form(...),
+    data_iscrizione_albo: str = Form(...),
+    citta: str = Form(...),
+    email: EmailStr = Form(...),
+    password: str = Form(...),
     specializzazione: str = Form(...),
-    tesserino:UploadFile=Form(...),
+    tesserino: UploadFile = Form(...),
     telefono: str = Form(None),
     url_sito: str = Form(None),
     indirizzo: str = Form(None),
-    stato: str = Form("Attivo")
+    stato: str = Form("Attivo"),
+    disponibilita: str = Form(...)  # nuovo campo obbligatorio
 ):
     import tempfile
     import json
 
     form_data = await request.form()
 
+    # dati raccolti per eventuale reinvio in caso di errore
     medico_data = {
         "nome": nome,
         "cognome": cognome,
@@ -62,25 +64,27 @@ async def iscrizione_medico(
         "citta": citta,
         "email": email,
         "password": password,
-        "specializzazione": specializzazione,  # rimane stringa JSON
+        "specializzazione": specializzazione,
         "telefono": form_data.get("telefono"),
         "url_sito": form_data.get("url_sito"),
         "indirizzo": form_data.get("indirizzo"),
-        "stato": form_data.get("stato", "Attivo")
+        "stato": form_data.get("stato", "Attivo"),
+        "disponibilita": disponibilita
     }
 
+    # salva temporaneamente il file tesserino
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(tesserino.file.read())
-        tmp_path=tmp.name
+        tmp_path = tmp.name
 
-    #invio form html con file allegati,multipart/form-data
+    # prepara i dati multipart/form-data
     with open(tmp_path, "rb") as file:
         multipart_files = [
             ("tesserino", (tesserino.filename, file, "application/octet-stream")),
             ("nome", (None, nome)),
             ("cognome", (None, cognome)),
             ("codice_fiscale", (None, codice_fiscale)),
-            ("numero_albo",(None, numero_albo)),
+            ("numero_albo", (None, numero_albo)),
             ("citta_ordine", (None, citta_ordine)),
             ("data_iscrizione_albo", (None, data_iscrizione_albo)),
             ("citta", (None, citta)),
@@ -89,15 +93,16 @@ async def iscrizione_medico(
             ("telefono", (None, form_data.get("telefono"))),
             ("url_sito", (None, form_data.get("url_sito"))),
             ("indirizzo", (None, form_data.get("indirizzo"))),
-            ("stato", (None, form_data.get("stato", "Attivo")))
+            ("stato", (None, form_data.get("stato", "Attivo"))),
+            ("disponibilita", (None, disponibilita)),
+            ("specializzazione", (None, specializzazione))
         ]
-
-        multipart_files.append(("specializzazione", (None, specializzazione)))
 
         response = requests.post(API_URL + "subscribe_medico", files=multipart_files)
 
+    # esito dell'iscrizione
     if response.status_code == 200:
-        return RedirectResponse("/iscrizione_medico?successo=1", status_code=303)
+        return RedirectResponse("/login_medico", status_code=303)
     else:
         try:
             messaggio = response.json().get("detail", "Errore generico.")
@@ -112,8 +117,6 @@ async def iscrizione_medico(
                 "valori_precedenti": medico_data
             }
         )
-
-
 
 
 
@@ -136,8 +139,24 @@ def login_medico(
         medico_data = response.json()
         request.session["medico"] = medico_data
         return RedirectResponse("/profilo_medico", status_code=302)
-    except requests.RequestException:
-        raise HTTPException(status_code=500, detail="Errore nella comunicazione con il backend")
+
+    except requests.HTTPError as e:
+        # Se il backend ha restituito un errore 401 o 403 con messaggio
+        try:
+            error_detail = e.response.json().get("detail", "Errore durante il login.")
+        except Exception:
+            error_detail = "Errore durante il login."
+
+        return templates.TemplateResponse("login_medico.html", {
+            "request": request,
+            "errore": error_detail
+        })
+
+    except Exception as e:
+        return templates.TemplateResponse("login_medico.html", {
+            "request": request,
+            "errore": "Errore di comunicazione con il backend"
+        })
 
 def profilo_medico(request: Request):
     medico = request.session.get("medico")
@@ -200,3 +219,5 @@ def elimina_appuntamento(request: Request, id_appuntamento: int):
         return RedirectResponse("/agenda_medico", status_code=302)
     except requests.RequestException:
         raise HTTPException(status_code=500, detail="Errore nella comunicazione col backend")
+    
+

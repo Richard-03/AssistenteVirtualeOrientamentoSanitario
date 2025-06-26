@@ -4,15 +4,124 @@
     <meta charset="UTF-8">
     <title>Agenda Medico</title>
     <link rel="stylesheet" href="/login_medici_front/css/profilo_medico.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: #f0f8ff;
+        }
+
+        h1 {
+            color: #0077cc;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #0077cc;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #e0f7ff;
+        }
+
+        .azioni-cell {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .azioni-cell form {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .azioni-cell textarea {
+            width: 220px;
+            height: 60px;
+            padding: 8px;
+            font-size: 0.9rem;
+            resize: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .azioni-cell button {
+            padding: 6px 10px;
+            font-size: 0.9rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #0077cc;
+            color: white;
+        }
+
+        .azioni-cell button:hover {
+            background-color: #005fa3;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            font-size: 1rem;
+            background-color: #0077cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #005fa3;
+        }
+
+        @media (max-width: 600px) {
+            .azioni-cell {
+                flex-direction: column;
+            }
+
+            .azioni-cell form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .azioni-cell textarea,
+            .azioni-cell button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <h1>Agenda Appuntamenti</h1>
-  
-    <form action="/" >
-        <button >Torna alla Home</button>
+
+    <form action="/">
+        <button>Torna alla Home</button>
     </form>
+
     {% if agenda %}
-    <table border="1" cellspacing="0" cellpadding="8">
+    <table>
         <thead>
             <tr>
                 <th>ID Appuntamento</th>
@@ -23,14 +132,19 @@
             </tr>
         </thead>
         <tbody>
-            {% for a in agenda %}
+            {% for a in agenda if a[2] == 'Prenotato' %}
             <tr id="appuntamento-{{ a[0] }}">
                 <td>{{ a[0] }}</td>
                 <td>{{ a[1] }}</td>
                 <td>{{ a[3] }} {{ a[4] }}</td>
                 <td>{{ a[2] }}</td>
-                <td>
-                    <button onclick="eliminaAppuntamento({{ a[0] }})">Elimina</button>
+                <td class="azioni-cell">
+                    <button onclick="eliminaAppuntamento({{ a[0] }})">🗑️</button>
+                    <form action="/completa_appuntamento" method="post">
+                        <input type="hidden" name="id_appuntamento" value="{{ a[0] }}">
+                        <textarea name="diagnosi" placeholder="Inserisci diagnosi..." required></textarea>
+                        <button type="submit">✅</button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}
@@ -40,30 +154,29 @@
     <p>Nessun appuntamento disponibile.</p>
     {% endif %}
 
-    
-    <form action="/profilo_medico" >
-        <button >Torna  al profilo</button>
+    <form action="/profilo_medico">
+        <button>Torna al profilo</button>
     </form>
-    
-<script>
-function eliminaAppuntamento(id) {
-    if (confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
-        fetch('/elimina_appuntamento', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id_appuntamento: id })
-        }).then(response => {
-            if (response.ok) {
-                const row = document.getElementById(`appuntamento-${id}`);
-                if (row) row.remove();
-            } else {
-                alert("Errore durante l'eliminazione dell'appuntamento.");
-            }
-        });
+
+    <script>
+    function eliminaAppuntamento(id) {
+        if (confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
+            fetch('/elimina_appuntamento', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id_appuntamento: id })
+            }).then(response => {
+                if (response.ok) {
+                    const row = document.getElementById(`appuntamento-${id}`);
+                    if (row) row.remove();
+                } else {
+                    alert("Errore durante l'eliminazione dell'appuntamento.");
+                }
+            });
+        }
     }
-}
-</script>
+    </script>
 </body>
 </html>

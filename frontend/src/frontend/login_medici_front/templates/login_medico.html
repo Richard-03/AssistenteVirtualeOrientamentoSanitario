@@ -3,13 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Utente</title>
+    <title>Login Medico</title>
     <link rel="stylesheet" href="/login_medici_front/css/style_medico.css">
+    <style>
+        .alert {
+            color: white;
+            background-color: red;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px auto;
+            width: fit-content;
+            max-width: 80%;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <a href="/" class="home-button">🏠 Home</a>
+
     <form class="login-form" action="/login_medico" method="post">
         <h1>Login Medico 👨‍⚕️👩‍⚕️</h1>
+
+        {% if errore %}
+            <div class="alert">{{ errore }}</div>
+        {% endif %}
+
         <label for="email">Email</label>
         <input type="email" name="email" id="email" placeholder="Inserisci la tua email" required>
 

@@ -1,4 +1,3 @@
-
 body {
     margin: 0;
     padding: 0;
@@ -23,21 +22,30 @@ ul {
     max-width: 600px;
 }
 
-li {
+.chat-item {
+    display: flex;
+    justify-content: center;
     margin: 10px 0;
 }
 
-form {
+.button-group {
     display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
     justify-content: center;
 }
 
-button {
-    width: 100%;
-    padding: 12px 20px;
+form {
+    margin: 0;
+}
+
+.btn-chat {
+    flex: 1;
+    padding: 12px 24px;
     font-size: 1rem;
-    color: #ffffff;
     background-color: #0077cc;
+    color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -45,10 +53,26 @@ button {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-button:hover {
+.btn-chat:hover {
     background-color: #005fa3;
     transform: translateY(-2px);
     color: #000;
+}
+
+.btn-elimina {
+    padding: 8px 12px;
+    font-size: 1rem;
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    height: 100%;
+    transition: background-color 0.3s ease;
+}
+
+.btn-elimina:hover {
+    background-color: #cc0000;
 }
 
 .home-button {

@@ -7,15 +7,17 @@
 </head>
 <body>
     <h1>Benvenuto Dr. {{ medico.nome }} {{ medico.cognome }}</h1>
-    
-    <form action="/agenda_medico" >
-        <button >Visualizza Agenda</button>
+
+    <form action="/agenda_medico">
+        <button>Visualizza Agenda</button>
     </form>
+
     <form action="/modifica_email" method="post">
         <label for="email"><strong>Email:</strong></label>
         <input type="email" id="email" name="email" value="{{ medico.email }}" required>
         <button type="submit">Aggiorna</button>
     </form>
+
     <p><strong>Specializzazioni:</strong></p>
     <ul>
         {% for spec in medico.specializzazione %}
@@ -23,7 +25,6 @@
         {% endfor %}
     </ul>
 
-    <!-- Altre informazioni del medico -->
     <p><strong>Codice Fiscale:</strong> {{ medico.codice_fiscale }}</p>
     <p><strong>Numero Albo:</strong> {{ medico.numero_albo }}</p>
     <p><strong>Città Ordine:</strong> {{ medico.citta_ordine }}</p>
@@ -31,8 +32,123 @@
     <p><strong>Città:</strong> {{ medico.citta }}</p>
     <p><strong>Telefono:</strong> {{ medico.telefono }}</p>
     <p><strong>URL Sito:</strong> <a href="{{ medico.url_sito }}" target="_blank">{{ medico.url_sito }}</a></p>
+
+    <hr>
+    <h2 style="text-align: center;">Aggiorna Disponibilità</h2>
+
+    <form action="/aggiorna_disponibilita" method="post" id="form-disponibilita">
+        <label>Disponibilità (formato: yyyy-mm-dd hh:mm:ss):</label><br>
+        <input type="datetime-local" id="slot">
+        <button type="button" onclick="aggiungiSlot()">Aggiungi Slot</button><br><br>
+        <ul id="lista-slot"></ul>
+        <input type="hidden" name="disponibilita" id="disponibilita-json"><br><br>
+
+        <h3>Genera automaticamente slot in un intervallo orario</h3>
+        <label>Data:</label><br>
+        <input type="date" id="giorno_range"><br><br>
+        <label>Ora inizio:</label><br>
+        <input type="time" id="ora_inizio_range"><br><br>
+        <label>Ora fine:</label><br>
+        <input type="time" id="ora_fine_range"><br><br>
+        <label>Durata slot (in minuti):</label><br>
+        <input type="number" id="durata_slot_range" value="60" min="5" max="180"><br><br>
+        <button type="button" onclick="generaSlotDaRange()">Genera Slot da Intervallo</button><br><br>
+
+        <button type="submit">Aggiorna Disponibilità</button>
+    </form>
+
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+
+    <script>
+        let disponibilita = [];
+
+        function aggiungiSlot() {
+            const slotInput = document.getElementById("slot");
+            const raw = slotInput.value.trim();
+            const slot = raw.replace("T", " ") + ":00";
+            const formato = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+            if (!formato.test(slot)) {
+                alert("Formato data/ora non valido. Usa 'yyyy-mm-dd hh:mm:ss'");
+                return;
+            }
+
+            disponibilita.push(slot);
+            aggiornaListaSlot();
+            aggiornaCampoNascosto();
+            slotInput.value = "";
+        }
+
+        function aggiornaListaSlot() {
+            const ul = document.getElementById("lista-slot");
+            ul.innerHTML = "";
+            disponibilita.forEach((slot, index) => {
+                const li = document.createElement("li");
+                li.textContent = slot + " ";
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = "Rimuovi";
+                btn.onclick = () => {
+                    disponibilita.splice(index, 1);
+                    aggiornaListaSlot();
+                    aggiornaCampoNascosto();
+                };
+                li.appendChild(btn);
+                ul.appendChild(li);
+            });
+        }
+
+        function aggiornaCampoNascosto() {
+            document.getElementById("disponibilita-json").value = JSON.stringify(disponibilita);
+        }
+
+        function generaSlotDaRange() {
+            const giorno = document.getElementById("giorno_range").value;
+            const oraInizio = document.getElementById("ora_inizio_range").value;
+            const oraFine = document.getElementById("ora_fine_range").value;
+            const durata = parseInt(document.getElementById("durata_slot_range").value, 10);
+
+            if (!giorno || !oraInizio || !oraFine || isNaN(durata) || durata <= 0) {
+                alert("Compila tutti i campi correttamente.");
+                return;
+            }
+
+            const [anno, mese, giornoNum] = giorno.split("-").map(Number);
+            const [inizioOre, inizioMin] = oraInizio.split(":").map(Number);
+            const [fineOre, fineMin] = oraFine.split(":").map(Number);
+
+            const inizio = new Date(anno, mese - 1, giornoNum, inizioOre, inizioMin);
+            const fine = new Date(anno, mese - 1, giornoNum, fineOre, fineMin);
+
+            if (inizio >= fine) {
+                alert("L'orario di inizio deve precedere quello di fine.");
+                return;
+            }
+
+            let current = new Date(inizio);
+            while (current.getTime() + durata * 60000 <= fine.getTime()) {
+                const pad = n => n.toString().padStart(2, '0');
+                const isoSlot = `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}:00`;
+
+                if (!disponibilita.includes(isoSlot)) {
+                    disponibilita.push(isoSlot);
+                }
+                current = new Date(current.getTime() + durata * 60000);
+            }
+
+            aggiornaListaSlot();
+            aggiornaCampoNascosto();
+        }
+
+        // Validazione per assicurarsi che ci sia almeno uno slot
+        document.getElementById("form-disponibilita").addEventListener("submit", function (e) {
+            if (disponibilita.length === 0) {
+                alert("Devi aggiungere almeno uno slot di disponibilità prima di inviare il form.");
+                e.preventDefault();
+            }
+        });
+    </script>
 </body>
-<form action="/logout" method="post">
-    <button type="submit">Logout</button>
-</form>
 </html>

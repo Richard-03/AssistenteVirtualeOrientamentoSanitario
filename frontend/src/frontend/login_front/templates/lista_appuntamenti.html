@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>I tuoi appuntamenti</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        .home-button {
+            display: inline-block;
+            margin: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .home-button:hover {
+            background-color: #0056b3;
+        }
+
+        .dashboard-title {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 28px;
+            color: #2c3e50;
+        }
+
+        .appointment-card {
+            background-color: white;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .appointment-card p {
+            margin: 6px 0;
+            font-size: 16px;
+        }
+
+        .dashboard-button {
+            display: inline-block;
+            padding: 8px 16px;
+            margin-top: 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .dashboard-button:hover {
+            background-color: #c82333;
+        }
+
+        hr {
+            max-width: 600px;
+            margin: 30px auto;
+            border: 0;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .no-appuntamenti {
+            text-align: center;
+            font-size: 18px;
+            color: #777;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <a href="/dashboard_utente" class="home-button">🏠 Torna alla Dashboard</a>
+    <h2 class="dashboard-title">I tuoi appuntamenti</h2>
+
+    {% if appuntamenti %}
+        {% for appuntamento in appuntamenti %}
+            <div class="appointment-card">
+                <p><strong>Data:</strong> {{ appuntamento.data_appuntamento_date }}</p>
+                <p><strong>Ora:</strong> {{ appuntamento.ora_appuntamento }}</p>
+                <p><strong>Medico:</strong> {{ appuntamento.nome_completo_medico }}</p>
+                <p><strong>Email medico:</strong> {{ appuntamento.email_medico }}</p>
+                <p><strong>Telefono:</strong> {{ appuntamento.telefono_medico }}</p>
+                <p><strong>Specializzazioni:</strong> {{ appuntamento.specializzazioni_medico }}</p>
+                <p><strong>Stato:</strong> {{ appuntamento.stato_appuntamento }}</p>
+
+                {% if appuntamento.cancellabile == 'Si' %}
+                    <form action="/elimina_appuntamento_utente" method="post">
+                        <input type="hidden" name="id" value="{{ appuntamento.id_appuntamento }}">
+                        <button type="submit" class="dashboard-button">❌ Annulla appuntamento</button>
+                    </form>
+                {% endif %}
+            </div>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <p class="no-appuntamenti">Non hai appuntamenti registrati.</p>
+    {% endif %}
+</body>
+</html>

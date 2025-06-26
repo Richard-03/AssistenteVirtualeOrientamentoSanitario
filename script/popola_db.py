@@ -2,6 +2,7 @@ import csv
 import mariadb
 import time
 import sys
+import bcrypt
 
 def connect(max_retries=30, retry_delay=2):
     """Connect to MariaDB with retry logic"""
@@ -40,12 +41,18 @@ def test_database_access(conn):
         print(f"Database test failed: {e}")
         return False
 
+# TODO: usare password cifrate per medici e per utenti
+
 def inserisci_cliente(conn, row):
+
+    password = row.get("password")
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
     try:
         cur = conn.cursor()
         cur.callproc('insert_cliente_completo', (
             row['nome'], row['cognome'], row['indirizzo'], row['citta'],
-            row['email'], row['password'], int(row['eta']), row['sesso'],
+            row['email'], hashed, int(row['eta']), row['sesso'],
             float(row['peso']), float(row['altezza']),
             row.get('intolleranze', ''), row.get('condizioni_pregresse', ''),
             row.get('condizioni_familiari', ''), None
@@ -64,13 +71,14 @@ def inserisci_medico(conn, row):
     try:
         cur = conn.cursor()
 
-        # TODO: MODIFICA QUI PER IL CALCOLO DELLE COORDINATE DA PASSARE DIRETTAMENTE ALLA STORED PROCEDURE (I DATI SONO FINTI ORA)
-        
+        password = row.get("password")
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
         cur.callproc('insert_medico_completo_csv', (
             row.get('nome'), row.get('cognome'), row.get("codice_fiscale"), 
             row.get("numero_albo"), row.get("citta_ordine"), 
             row.get("data_iscrizione_albo"), row.get("citta"), row.get('email'),
-            row.get("password"), row.get('telefono', ''),
+            hashed, row.get('telefono', ''),
             row.get('url_sito', ''), row.get('indirizzo', ''),
             row.get('specializzazioni'), row.get('coordinate')
         ))
@@ -82,6 +90,28 @@ def inserisci_medico(conn, row):
     except mariadb.Error as e:
         print(f"Errore medico {row.get('email')}: {e}")
         conn.rollback()
+
+def inserisci_admin(conn, email, password):
+    try:
+        cur = conn.cursor()
+        
+        # Genera hash bcrypt
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')        
+        # Elimina se già esiste
+        cur.execute("DELETE FROM Admin WHERE email = ?", (email,))
+        # Inserisci admin nuovo
+        cur.execute("INSERT INTO Admin (email, password) VALUES (?, ?)", (email, hashed))
+
+        cur.close()
+        conn.commit()
+        print("✅ Admin inserito con successo.")
+
+    except mariadb.Error as e:
+        print(f"Errore admin")
+        conn.rollback()
+
+
+
 
 # Main execution
 if __name__ == "__main__":
@@ -121,6 +151,22 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error processing doctors: {e}")
     
+        # Dati dell'admin
+    email = "admin@example.com"
+    password = "admin123"
+
+    # Process clients
+    try:
+        print("\nProcessing admins...")
+        
+        # TODO: se si vuole popolare con più di 1 admin, inserire qui un ciclo for e trasformare email e password in un dizionario
+        inserisci_admin(conn, email, password)
+    except Exception as e:
+        print(f"Error processing admin: {e}")
+    
+
     # Close connection
     conn.close()
     print("\nDatabase population completed!")
+
+

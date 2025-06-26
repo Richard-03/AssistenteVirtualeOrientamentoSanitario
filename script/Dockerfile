@@ -15,5 +15,6 @@ COPY clienti_csv.csv /app/clienti_csv.csv
 COPY medici_csv.csv /app/medici_csv.csv
 
 RUN pip install mariadb
+RUN pip install bcrypt
 
 CMD ["python", "popola_db.py"]

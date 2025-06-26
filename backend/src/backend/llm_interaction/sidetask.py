@@ -44,8 +44,9 @@ class SideTaskClassifier():
         Nome: <nome>, Cognome:<cognome> or 'non indicato'
         """
         prompt = "Nel paragrafo tra tripli apici un utente chiede ad un assistente virtuale per un servizio sanitario di aiutarlo a prenotare una visita presso un medico.\
- Il tuo compito è analizzare il testo e capire se vi è indicato il nome ed il cognome del medico. Se ci sono rispondi 'Nome: qui il nome della persona senza appellativo, Cognome: qui il cognome della persona senza appellativo', se manca almeno uno dei due campi o ci sono troppi medici indicati scrivi 'non indicato'.\
- Il testo è il seguente: '''" + booking_sentence + "'''. Rispondi solo con il formato 'Nome: qui il nome, Cognome: qui il cognome' o con 'non indicato'"
+ Il testo è il seguente: '''" + booking_sentence + "'''.\
+ Il tuo compito è analizzare il testo e capire se vi è indicato il nome ed il cognome del medico. Se ci sono entrambi rispondi 'Nome: qui il nome della persona senza appellativo, Cognome: qui il cognome della persona senza appellativo'.\
+ Se manca il cognome o ci sono troppi medici indicati scrivi 'non indicato'. Se manca solo il nome restituisci solo 'Cognome: qui il cognome senza appellativo'."
         category = self._get_response(prompt)
         return category
 

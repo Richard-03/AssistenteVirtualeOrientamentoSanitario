@@ -1,4 +1,4 @@
-from .database import get_cursor
+from database.database import get_cursor
 import mariadb
 
 from geopy.geocoders import Nominatim
@@ -9,13 +9,13 @@ import os
 from typing import Dict, Optional, Tuple, List, Any
 import folium
 
-MAP_FILENAME = "..", "data", "mappa_medici.html"
+MAP_FILENAME = "..", "..", "data", "mappa_medici.html"
 
 
 # TODO: SPOSTARE QUESTA FUNZIONE NELLE INTERAZIONI DI CHAT PERCHé QUI NON è PIù LOGIAMENTE CONNESSA
 def fetch_drs_info(specialization: str = None) -> List[Dict[str, str]]:
     """
-    Retrieve info about doctors about:
+    Retrieve info about verified doctors:
     - id
     - nome
     - cognome
@@ -33,13 +33,11 @@ def fetch_drs_info(specialization: str = None) -> List[Dict[str, str]]:
     result = None
     with get_cursor() as cursor:
         cursor: mariadb.Cursor
-        # TODO: io faccio il join, da modificare: più utile se si fa una view e poi si cattura l'informazione dalla view
         if not specialization: 
-            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico")
+            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico WHERE m.verificato = 1")
         else:
-            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico WHERE s.specializzazione = ?", (specialization,))
+            cursor.execute("SELECT m.id, m.nome, m.cognome, s.id, s.specializzazione, s.indirizzo, s.latitudine, s.longitudine, s.ranking FROM Medico m LEFT JOIN Specializzazione s ON m.id = s.id_medico WHERE s.specializzazione = ? and m.verificato = 1", (specialization,))
         result = cursor.fetchall()
-        # TODO: prendo queste informazioni, in realtà si può pensare di prendere solo id e indirizzo perche è noto che quando questa funzione viene lanciato latitudine e longitudine sono a valore nullo/0
         position_data = [{
             "id": tup[0],
             "nome": tup[1],
@@ -87,9 +85,6 @@ def get_coordinates(address: str, max_attempts: int = 5, single_timeout:int = 5)
 
 
 
-
-# TODO: la seguente funzione deve essere runnata subito dopo che il database viene popolato
-# PER ORA è USATA A LIVELLO DI TESTING IN "TESTER.PY"
 def compute_coordinates():
     # esistenza file o creazione fake db
     # la variabile cached_coords è/diventa nella forma {indirizzo: (latitudine, longitudine)}
@@ -104,14 +99,6 @@ def compute_coordinates():
             # TODO: l'aggiornamento si può fare con sql da python o con stored procedure
             cursor.execute("UPDATE Specializzazione SET latitudine = ? , longitudine = ? WHERE Specializzazione.id = ?", (new_lat, new_long, dr["id_specializzazione"]))
     
-    
-    
-    """
-
-    la parte delle distanze la fai dopo, in un'altra funzione;
-    nella stessa magari fai pure mappa
-
-    """
 
 def get_nearest_drs(client_address: str, specialization: str, latitude: Optional[float], longitude: Optional[float]) -> List[Dict[str, Any]]:
     """
@@ -160,11 +147,7 @@ def create_map_html_file(client_address: str, nearest: List[Dict[str, float]], l
             tooltip=f"{dr['nome']} {dr['cognome']}, ({dr['specializzazione']} | {dr['indirizzo']}, {dr['distanza_km']:.2f} km)",
             icon=folium.Icon(color='red')
         ).add_to(mappa)
-    """ if map_name and "." not in map_name:
-        new_path = MAP_FILENAME[0], map_name, ".html"
-        mappa.save(os.path.join(*new_path))
-    else:
-        mappa.save(os.path.join(*MAP_FILENAME)) """
+
     if map_name is None or "." in map_name:
         mappa.save(os.path.join(os.path.abspath(os.path.dirname(__file__)) , *MAP_FILENAME))
     else: 

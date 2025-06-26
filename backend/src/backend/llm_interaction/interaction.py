@@ -1,17 +1,11 @@
 from fastapi import HTTPException, status
+from backend.ranking.booking import booking
 from database.chatting import *
 from .virtual_assistant import VirtualMedicalAssistant
 from backend.llm_interaction.sidetask import SideTaskClassifier
-from database.geo import get_nearest_drs, create_map_html_file
+from backend.geo.geo import get_nearest_drs, create_map_html_file
 from typing import Any, Optional
-from backend.login_back_utenti.send_mail import booking_mail
 from backend.llm_interaction.utilities import *
- 
-""" 
-
-homonymy_doc_list_global: List[Dict[str, Any]] = []
-homonymy_trigger_msg_global:str = None """
-
 
 def init_vma(client_id:int, chat_number:int) -> None:
     """Initialize the Assitant to have hello msg displayed"""
@@ -44,6 +38,7 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
     vma = VirtualMedicalAssistant(history)
     
     # getting and cleaning the classification msg
+    print(f"Frase da classificare: {new_msg}")
     classified_task = vma.classify_task(new_msg)
     print("La frase è stata classificata come: ", classified_task)
 
@@ -51,7 +46,7 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
     if classified_task not in VirtualMedicalAssistant.TASK_LIST:
         print(f"Il messaggio non è stato recepito come un task che questo assistente può svolgere: <{classified_task}>")
     
-    elif classified_task == vma.DESCRIPTION_TASK:
+    if classified_task == vma.DESCRIPTION_TASK:
         result = handle_symptom_analysis(vma, client_id, chat_number, new_msg)
             
     elif classified_task == vma.SEARCH_TASK:
@@ -60,9 +55,9 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
         if not specialization:
             result = vma.ask_more(new_msg)
             try:
-                save_history(client_id, chat_number, vma.get_history()[-2]["content"], result)
+                save_history(client_id, chat_number, vma.get_last_prompt(), result)
             except Exception as e:
-                print("Catturata eccezione in: handle_symptom_analysis | interaction.py: ", e, type (e))
+                print("Catturata eccezione in: classifica con descrizione | interaction.py: ", e, type (e))
                 raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
         
         else:
@@ -83,9 +78,9 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
             print("RICHIESTA DI MAGGIORI INFO DA PARTE DELL'LLM")
             result = vma.ask_more(new_msg)
             try:
-                save_history(client_id, chat_number, vma.get_history()[-2]["content"], result)
+                save_history(client_id, chat_number, vma.get_last_prompt(), result)
             except Exception as e:
-                print("Catturata eccezione in: handle_symptom_analysis | interaction.py: ", e, type (e))
+                print("Catturata eccezione in: classifica senza descrizione | interaction.py: ", e, type (e))
                 raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
         
         else:
@@ -103,9 +98,9 @@ def llm_interact(client_id:int, chat_number: int, new_msg: str, latitude: Option
     else:
         result = vma.tell_task(new_msg)
         try:
-            save_history(client_id, chat_number, vma.get_history()[-2]["content"], result, suggested_field = specialization if specialization != "nessuna" else None)
+            save_history(client_id, chat_number, vma.get_last_prompt(), result)
         except Exception as e:
-            print("Catturata eccezione in: handle_symptom_analysis | interaction.py: ", e, type (e))
+            print("Catturata eccezione in: senza categoria | interaction.py: ", e, type (e))
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
     
 
@@ -119,7 +114,7 @@ def handle_symptom_analysis(vma: VirtualMedicalAssistant, client_id: int, chat_n
     specialization_classifier = SideTaskClassifier()
     specialization = specialization_classifier.classify_specialization(result)
     try:
-        save_history(client_id, chat_number, vma.get_history()[-2]["content"], result, suggested_field = specialization if specialization != "nessuna" else None)
+        save_history(client_id, chat_number, vma.get_last_prompt(), result, suggested_field = specialization if specialization != "nessuna" else None)
     except Exception as e:
         print("Catturata eccezione in: handle_symptom_analysis | interaction.py: ", e, type (e))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
@@ -152,7 +147,7 @@ def handle_search(vma: VirtualMedicalAssistant, specialization: str, client_id: 
     try:
         # salvo il messaggio con il contorno del prompt perché si tratta del contesto del'LLM
         # la tabella che serve per mantenere aggiornata la sidebar viene aggionrata in parallelo alla storia
-        save_history(client_id, chat_number, vma.get_history()[-2]["content"], result, suggested_field=specialization)
+        save_history(client_id, chat_number, vma.get_last_prompt(), result, suggested_field=specialization)
     except Exception as e:
         print("Catturata eccezione: ", e, type (e))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
@@ -169,10 +164,11 @@ def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, ch
         # analogo a handle_search senza informazioni, cambia la forma verbale "vorrei prenotare..." | "mi fai vedere..."
         field = booking_classifier.extract_specialization_from_direct_request(new_msg)
         # assicuro formattazione utile per il seguito
-        if field.lower() == "non indicato":
-            # CASO STRANO: es. "vorrei prenotare una visita" come primo messaggio  
+        if field.lower() == "nessuna":
+            # CASO STRANO: es. "vorrei prenotare una visita (con X)" come primo messaggio  
             print("ARRIVATI IN UN CASO STRANO DA HANDLE_BOOKING_WITHOUT_DATE")
             result = vma.ask_more(new_msg)
+            field = None    # quello che va salvato nel db è che non c'è
     else:
         # reupera info sui medici vicini di quella categoria
         client_address = fetch_client_address(client_id)
@@ -191,7 +187,7 @@ def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, ch
             print("Estratti:", name, surname)
 
             # non dovrebbe servire questo controllo per come è scritto il prompt
-            if not name or not surname:
+            if not surname:
                 result = vma.ask_better_name(new_msg)
                 
             else:
@@ -200,10 +196,14 @@ def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, ch
                 selected_docs:List[Dict[str, Any]] = []
                 # se ci sono cerca tra i vari medici, altrimenti potrebbe essere stato specificato solo il nome del medico 
                 if nearest_docs_by_field:
-                    for doc in nearest_docs_by_field:
-                        if doc["nome"].lower() == name.lower() and doc["cognome"].lower() == surname.lower():
-                            selected_docs.append(doc)
-
+                    if name:
+                        for doc in nearest_docs_by_field:
+                            if doc["nome"].lower() == name.lower() and doc["cognome"].lower() == surname.lower():
+                                selected_docs.append(doc)
+                    else:
+                        for doc in nearest_docs_by_field:
+                            if doc["cognome"].lower() == surname.lower():
+                                selected_docs.append(doc)
                 else: 
                     # TODO: è DAVVERO UTILE QUESTO PEZZO?
                     print("ENTRO IN UN PEZZO DI DUBBIA UTILITà")
@@ -213,38 +213,23 @@ def handle_booking_without_date(vma: VirtualMedicalAssistant, client_id: int, ch
                 # TODO: trattare il caso di omonimia
                 if len(selected_docs) == 1:
                     selected_doc = selected_docs[0]
-                    # TODO: andrebbero trovati gli slot di tempo liberi del dottore
-                    # TODO: RECUPERARE INFORMAZIONI DAL DB
-                    # TODO: FORMATTARLE
-                    # TODO: FORNIRLE ALL'LLM NELLA FUNZIONE CHE SEGUE
 
-                    # per il db il formato dei timestamp è --'AAAA-MM-GG HH:MM:SS'
-                    # selected_doc è passato per far riepilogare le informazioni
-                    # TODO: INFO PASSATE PER GLI SLOT TEMPORALI
+                    time_slots = get_clean_time_slots(selected_doc["id"])
+                    cleaned_data = {k:v for k,v in selected_doc.items() if k not in ("id", "id_specializzazione", "latitudine", "longitudine")} 
 
-
-
-
-                    result = vma.ask_for_booking_date(new_msg, selected_doc)
+                    result = vma.ask_for_booking_date(new_msg, cleaned_data, time_slots)
                 
                 elif len(selected_docs) == 0:
                     result = vma.ask_better_name(new_msg)
 
-                
-
                 else:
-                    # in qeusto branch viene trattata l'omonimia: da qui il msg viene salvato con field specificato e suggested_doc = NULL perché situazione di indecisione
-                    out_list:List[str] = []
-                    for i in range(len(selected_docs)):
-                        out_list.append(f"{i+1}. {selected_docs[i]['nome']}, {selected_docs[i]['cognome']}, {selected_docs[i]['indirizzo']}")
-
                     static_anwer = "Ops, ci troviamo in un caso di omonimia, per favore usa la barra laterale per procedere alla prenotazione."
 
                     # la risposta ottenuta è in realtà pre-scritta
                     result = vma.handle_static_answer(new_msg, static_anwer)
 
     try:        
-        save_history(client_id, chat_number, vma.get_history()[-2]["content"], result, suggested_field = field if field else None, suggested_doc_id = selected_doc["id"] if selected_doc else None)
+        save_history(client_id, chat_number, vma.get_last_prompt(), result, suggested_field = field if field else None, suggested_doc_id = selected_doc["id"] if selected_doc else None)
     except Exception as e:
         print("Catturata eccezione: ", e, type (e))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")
@@ -262,51 +247,58 @@ def handle_booking_with_date(vma: VirtualMedicalAssistant, client_id: int, chat_
     print(f"Data estratta: {date} di tipo {type(date)}")
     if date.lower() != "non indicato":
         print("Entro con indicazione temporale")
-        with get_cursor() as cursor:
-            cursor: mariadb.Cursor
-            doc = fetch_selected_doc(client_id, chat_number)
-            print(f"Valore atteso = NULL, result = {result}")
-            if not doc:
-                field = fetch_suggested_field(client_id, chat_number)
-                if field:
-                    result = vma.ask_for_doc(new_msg)
-                else:
-                    # TODO: CASO STRANO, IN CUI VIENE CHIESTA UNA DATA MA SENZA MEDICO E SENZA CAMPO, es. "vorrei prenotare il 22/10/2025" in apertura, improbabileper questa applicazione
-                    print("ARRIVATI IN UN CASO STRANO DA HANDLE_BOOKING_WITH_DATE")
-                    result = vma.ask_to_repeat(new_msg)
+
+        doc = fetch_selected_doc(client_id, chat_number)
+        print(f"Valore atteso = NULL, result = {result}")
+        if not doc:
+            field = fetch_suggested_field(client_id, chat_number)
+            if field:
+                result = vma.ask_for_doc(new_msg)
             else:
-                print(f"Valore atteso ramo else se indicato = NULL, result = {result}")
+                # TODO: CASO STRANO, IN CUI VIENE CHIESTA UNA DATA MA SENZA MEDICO E SENZA CAMPO, es. "vorrei prenotare il 22/10/2025" in apertura, improbabile per questa applicazione
+                print("ARRIVATI IN UN CASO STRANO DA HANDLE_BOOKING_WITH_DATE")
+                result = vma.ask_to_repeat(new_msg)
+        else:
+            doc_id = doc["id"]
+            # date è nel formato yyyy-mm-dd hh:mm:ss
+            yymmdd, second_part = date.split(" ")
+            hhmm = ":".join(second_part.split(":")[:2])
+            print(f"DIVISE INFO SULLA DATA IN {yymmdd} E {hhmm}")
+            # nei time slot abbiamo lo stesso formato tranne i secondi
+            availability = get_giorni_disponibili_medico(doc_id)    # dizionari fatta così:{'aa-mm-gg': ['hh:mm', 'hh:mm']}
+            # controllo che l'utente non abbia inserito una disponibilità sbagliata
+            ok = False
+            for day in availability.keys():
+                if day.strip() == yymmdd.strip():
+                    if hhmm in availability[day]:
+                        ok = True
 
-                doc_id = doc["id"]
+            if not ok:
+                print("DATA NON TRA QUELLE DISPONIBILI")
+                # costruisci i time slot e risimula la richiesta precedente
+                time_slots = get_clean_time_slots(doc_id)
+                cleaned_data = {k:v for k,v in doc.items() if k not in ("id", "id_specializzazione", "latitudine", "longitudine")} 
 
-                # TODO: LA PRENOTAZIONE DELL'APPUNTAMENTO LA LASCIO COSì O LA DELEGO A BOOKING MAIL? CODICE RIUTILIZZABILE DA GABRIELE?
-                cursor.callproc("prenota_appuntamento", [client_id, doc_id, date])
-        
-                # Questo serve a leggere il risultato della SELECT finale
-                consume_procedure_result(cursor)
+                result = vma.ask_for_correct_booking_date(new_msg, cleaned_data, time_slots)
+
+            else: 
+                print("DATA TRA QUELLE DISPONIBILI, PROCEDENDO ALLA PRENOTAZIONE")
+                booking(client_id, doc_id, date)
                 
                 static_answer = f"Appuntamento confermato, inviata email di conferma a lei e al dr./dr.essa {doc['nome']} {doc['cognome']}"
                 
+                # reset dell'id del dottore per evitare successive prenotazioni arbitrarie
+                doc_id = None
+
                 # messaggio fisso, aggiorno la chat come se fosse dell'assistente
                 result = vma.handle_static_answer(new_msg, static_answer)
 
-
-                doc_mail = doc["email"]
-                address = doc["indirizzo"]
-                doc_name = doc["nome"]
-                doc_surname = doc["cognome"]
-                phone = doc["telefono"] 
-                client_info = fetch_client_info(client_id)
-                client_mail = client_info["email"]
-                client_name = client_info["nome"]
-                client_surname = client_info["cognome"]
-                booking_mail(client_mail, client_name, client_surname, doc_name, doc_surname, address, date, phone)
-                booking_mail(doc_mail, client_name, client_surname, doc_name, doc_surname, address, date, phone)
+                
 
         try:
             print(f"Valore atteso = True, bool(result) = {bool(result)}")
 
-            save_history(client_id, chat_number, vma.get_history()[-2]["content"], result, suggested_field = field if field else None, suggested_doc_id = doc_id if doc_id else None)
+            save_history(client_id, chat_number, vma.get_last_prompt(), result, suggested_field = field if field else None, suggested_doc_id = doc_id if doc_id else None)
         except Exception as e:
             print("Catturata eccezione: ", e, type (e))
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Salvataggio dei messaggi fallita nel database")

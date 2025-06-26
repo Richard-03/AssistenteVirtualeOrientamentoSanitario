@@ -29,9 +29,9 @@ class VirtualMedicalAssistant:
     
     BOOKING_TASK_NO_DATE = "prenotazione visita senza data"
     BOOKING_TASK_WITH_DATE = "prenotazione visita a data fissata"
-    HOMONYMY = "risoluzione omonimia"
-    TASK_LIST = [DESCRIPTION_TASK, SEARCH_TASK, SEARCH_WITHOUT_DESCRIPTION, BOOKING_TASK_NO_DATE, BOOKING_TASK_WITH_DATE, HOMONYMY]
-    
+
+    TASK_LIST = [DESCRIPTION_TASK, SEARCH_TASK, SEARCH_WITHOUT_DESCRIPTION, BOOKING_TASK_NO_DATE, BOOKING_TASK_WITH_DATE]
+   
     def __init__(self, history = None):
         """Creates the object and initialize the agent giving it explaination about what it can and cannot do"""
         self._history: List[Dict[str, str]] = history if history else []
@@ -86,6 +86,10 @@ f"D'ora in poi sei l'assistente virtuale per un servizio sanitario;\
             "content": prompt
         })
 
+    def get_last_prompt(self):
+        if len(self._history) >= 2:
+            return self._history[-2]["content"]
+
     def _get_response_by_prompt(self, prompt: str) -> str:
         """
         Adds the complete prompt to the history of the assistant,
@@ -138,8 +142,7 @@ f"D'ora in poi sei l'assistente virtuale per un servizio sanitario;\
  '{self.SEARCH_TASK}' se il cliente sa già a quale specialista rivolgersi e vuole sapere se puoi aiutarlo a trovare specialisti in zona,\
  '{self.BOOKING_TASK_NO_DATE}' se il cliente ha già il nome di uno specialista specifico e vorrebbe che lo aiutassi nelle pratiche di prenotazione,\
  '{self.BOOKING_TASK_WITH_DATE}' se il cliente sta indicando una data relativa al dottore precedentemente specificato,\
- '{self.SEARCH_WITHOUT_DESCRIPTION} se il cliente sta chiedendo informazioni su un tipo di specialista senza aver prima parlato dei suoi sintomi durante la conversazione',\
- '{self.HOMONYMY}' se durante la prenotazione si è verificato un caso di omonimia e il cliente ha selezionato un numero corrispondente a un medico proposto.\
+ '{self.SEARCH_WITHOUT_DESCRIPTION}' se il cliente sta chiedendo informazioni su un tipo di specialista senza aver prima parlato dei suoi sintomi durante la conversazione'.\
  Se una richiesta o un testo in input non è inerente al contesto medico o alla conversazione in corso allora scrivi 'senza categoria'. Classifica: ''' {task} '''.\
  Rispondi solo con il nome della categoria o con 'senza categoria'.\
  Usa la storia della conversazione per risolvere le ambiguità."
@@ -184,15 +187,13 @@ f"Di seguito, il testo contenuto tra gli apici tripli contiene una richiesta di 
         # TODO: arricchirre questa e tutte le funzioni a ritroso delle informazioni circa il ranking; 
         # TODO: capire se l'imprecisione è dovuta al formato dei dati che arrivano 
         
-        print("ATTENZIONE: IL SISTEMA DI RANKING NON è CORRENTEMENTE IMPLEMENTATO")
         print("Dati per handle_search: ", data)
 
         if data:
             response = self._get_response_by_prompt(
 f"Arriva la richiesta di ricerca di specialisti nelle vicinanze da parte dell'utente come segue:\
  '''{request}'''. Rispondi usando le seguenti informazioni: ''{data}''.\
- Elenca i medici nel formato 'nome cognome (specializzazione | indirizzo, distanza | punteggio: ranking)'.\
- Suggerisci inoltre di controllare la mappa generata per avere una visione grafica delle informazioni.\
+ Elenca i medici nel formato 'nome cognome (specializzazione | indirizzo, distanza | punteggio: ranking/10)'.\
  Infine chedi se desidera prenotare una visita con uno dei medici mostrati, indicando eventualmente quale.\
  Se non ricevi dati comunica che non abbiamo specialisti registrati che rispondono alla richiesta."
         )
@@ -211,18 +212,22 @@ f"Arriva la richiesta di ricerca di specialisti nelle vicinanze da parte dell'ut
         result = self._get_response_by_prompt(prompt)
         return result
 
-    def ask_for_booking_date(self, request: str, doc_data: Dict[str, Any]) -> str:
+    def ask_for_booking_date(self, request: str, doc_data: Dict[str, Any], time_slots: List[Dict[str, List[str]]]) -> str:
         """Handle booking request containing the name of a doctor. Data should arrive already cleaned."""
 
         # TODO: analisi della risposta in base ai dati come arrivano
         print("Dati per prenotazione con nome: ", doc_data)
+        print("Dati temporali per prenotazione: ", time_slots)
 
         prompt = f"Arriva la richiesta di prenotazione per un medico, come segue tra tripli apici:'''{request}''''. \
  Chiedi all'utente data e ora della prenotazione per una visita con lo specialista indicato nei seguenti dati: {doc_data}. \
+ Sai che tale medico ha le disponibilità indicate nei seguenti dati: {time_slots}. \
+ Mostra tali informazioni e chiedi di indicare il giorno e l'orario tra quelli mostrati per cui vorrebbe prenotare, se ci sono. \
+ Comunica inoltre all'utente che se preferisce può farlo usando l'apposito tasto 'Prenota' della barra laterale.\
  Se nella richiesta l'utente aveva già proposto una data chiedi di riscriverla."
         result = self._get_response_by_prompt(prompt)
         return result
-    
+
 
 
     #########################################
@@ -269,6 +274,19 @@ f"Arriva la richiesta di ricerca di specialisti nelle vicinanze da parte dell'ut
         result = self._get_response_by_prompt(prompt)
         return result
     
+    def ask_for_correct_booking_date(self, wrong_date_msg:str, doc_data: Dict[str, Any], time_slots:List[Dict[str, List[str]]]) -> str:
+
+        # TODO: analisi della risposta in base ai dati come arrivano
+        print("Dati per prenotazione con nome: ", doc_data)
+        print("Dati temporali per prenotazione: ", time_slots)
+        prompt = f"Arriva una data che non combacia con una di quelle proposte per la prenotazione:'''{wrong_date_msg}''''. \
+ Chiedi all'utente nuovamente data e ora della prenotazione per una visita con lo specialista indicato nei seguenti dati: {doc_data}. \
+ Sai che tale medico ha le disponibilità indicate nei seguenti dati: {time_slots}. \
+ Mostra tali informazioni e chiedi di indicare il giorno e l'orario per cui vorrebbe prenotare. \
+ Comunica inoltre all'utente che se preferisce può compiere la prenotazione usando l'apposito tasto 'Prenota' della barra laterale."
+        result = self._get_response_by_prompt(prompt)
+        return result
+
 
 
     # la seguente è una via per far passare come messaggi dell'LLM messaggi statici, pur facendoli rientrare nella storia in modo da essere coerenti con i dati salvati e da salvare nel db

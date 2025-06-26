@@ -1,13 +1,12 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.staticfiles import StaticFiles
+from fastapi import HTTPException, Form
 from fastapi.responses import RedirectResponse
 import os
 import sys
 import bcrypt
 
 # Path per importare login_iscrizione
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "login_iscrizione_medici")))
-from ..login_iscrizione_medici.login_iscrizione import execute_query, insert_data_query, format_value
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "doctor")))
+from ..doctor.login_iscrizione import execute_query, insert_data_query, format_value
 
 from database.database import _get_connection
 
@@ -45,7 +44,7 @@ def get_utenti_non_verificati():
 
 def get_tesserino(email:str):
     print("DEBUG: percorso: ",  os.path.abspath(os.path.join(os.path.dirname(__file__))))
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../login_iscrizione_medici/uploads"))
+    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../doctor/uploads"))
     print("DEBUG: percorso trovato: ",  upload_dir)
     # old: "../../../../uploads"
     for filename in os.listdir(upload_dir):

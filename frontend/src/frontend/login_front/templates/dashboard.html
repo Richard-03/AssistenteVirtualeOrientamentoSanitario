@@ -1,23 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="/login_front/css/dashboard.css">
-        <title>Dashboard</title>
-    </head>
-    <body class="dashboard-container">
-        <a href="/" class="home-button">🏠 Home</a>
-        <h2 class="dashboard-title">Ciao! Che cosa vuoi fare?</h2>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/login_front/css/dashboard.css">
+    <title>Dashboard</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const newChatForm = document.querySelector('form[action="/chat/new"]');
+            if (newChatForm) {
+                newChatForm.addEventListener("submit", function () {
+                    const button = newChatForm.querySelector("button");
+                    button.disabled = true;
+                    button.textContent = "Attendi...";
+                });
+            }
+        });
+    </script>
+</head>
+<body class="dashboard-container">
+    <a href="/" class="home-button">🏠 Home</a>
+    <h2 class="dashboard-title">Ciao! Che cosa vuoi fare?</h2>
 
-        <form action="/chat/new" method="post" class="dashboard-form">
-            <input type="hidden" name="client_id" value="{{ client_id }}">
-            <button class="dashboard-button">Inizia nuova chat</button>
-        </form>
+    <form action="/chat/new" method="post" class="dashboard-form">
+        <input type="hidden" name="client_id" value="{{ client_id }}">
+        <button class="dashboard-button">Inizia nuova chat</button>
+    </form>
 
-        <form action="/chat/resume_all" method="get" class="dashboard-form">
-            <input type="hidden" name="client_id" value="{{ client_id }}">
-            <button class="dashboard-button">Riprendi una chat esistente</button>
-        </form>
-    </body>
+    <form action="/chat/resume_all" method="get" class="dashboard-form">
+        <input type="hidden" name="client_id" value="{{ client_id }}">
+        <button class="dashboard-button">Riprendi una chat esistente</button>
+    </form>
+
+    <form action="/modifica_profilo" method="get" class="dashboard-form">
+        <button class="dashboard-button">Modifica il mio profilo</button>
+    </form>
+    <form action="/appuntamenti_utente" method="get" class="dashboard-form">
+
+        <button class="dashboard-button">Visualizza o modifica appuntamenti</button>
+    </form>
+</form>
+
+</body>
 </html>

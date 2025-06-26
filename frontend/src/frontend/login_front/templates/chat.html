@@ -1,140 +1,270 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <title>Chat con l'assistente</title>
-    <link rel="stylesheet" href="/login_front/css/chat.css">
+  <meta charset="UTF-8" />
+  <title>Chat con l'assistente</title>
+  <link rel="stylesheet" href="/login_front/css/chat.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    button {
+      cursor: pointer;
+      margin: 2px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #f0f0f0;
+    }
+    button:hover {
+      background: #ddd;
+    }
+    .popup-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+    .popup {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 350px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .day-block {
+      margin-bottom: 15px;
+    }
+    .day-title {
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    #medici-consigliati {
+      max-height: 200px;
+      overflow-y: auto;
+      border-top: 1px solid #ccc;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f9f9f9;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
 </head>
 <body>
-    <a href="/dashboard_utente" class="home-button">Dashboard</a>
-    <div class="chat-container" style="max-width: 500px; margin: 2rem auto; padding: 1rem; background-color: #ffffff; border-radius: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-        <div class="chat-header" style="text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
-            Chat con l'assistente medico
-        </div>
+  <a href="/dashboard_utente" class="home-button">Dashboard</a>
 
-        <div id="chat-box" class="chat-box" style="width: 100%; height: 400px; border-radius: 10px; border: 1px solid #ccc; overflow-y: auto; padding: 10px; background-color: #f9f9f9;"></div>
+  <div class="chat-container">
+    <div class="chat-header">Chat con l'assistente medico</div>
 
-        <form id="chat-form" class="chat-form" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-            <input type="hidden" name="client_id" value="{{ client_id }}">
-            <input type="hidden" name="chat_number" value="{{ chat_number }}">
-            <input type="text" id="msg" name="msg" placeholder="Scrivi un messaggio..." required class="chat-input" style="flex: 1;">
-            <button type="submit" class="chat-button">Invia</button>
-        </form>
-    </div>
+    <div id="chat-box" class="chat-body"></div>
 
-    <script id="chat-history-data" type="application/json">
-        {{ history | tojson }}
-    </script>
+    <form id="chat-form" class="chat-input">
+      <input type="hidden" name="client_id" value="{{ client_id }}">
+      <input type="hidden" name="chat_number" value="{{ chat_number }}">
+      <input type="text" id="msg" name="msg" placeholder="Scrivi un messaggio..." required />
+      <button type="submit">Invia</button>
+    </form>
 
-    <!--PROVA A LEGGERE MARKDOWN PER FORMATTAZIONE CARINA DEL TESTO-->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <div id="medici-consigliati"></div>
+  </div>
 
+  <script id="chat-history-data" type="application/json">
+    {{ history | tojson }}
+  </script>
 
-    <script>
-    // JS AGGIORNATO CON POSIZIONE DI SESSIONE
-    
-    // preparo il form e gli elementi della pagina
+  <script>
     const form = document.getElementById("chat-form");
     const input = document.getElementById("msg");
     const chatBox = document.getElementById("chat-box");
     const historyDataTag = document.getElementById("chat-history-data");
-    const chatHistory = JSON.parse(historyDataTag.textContent);
+    const chatHistory = JSON.parse(historyDataTag.textContent || "[]");
+    const mediciContainer = document.getElementById("medici-consigliati");
 
-    // storico messaggi
-    chatHistory.forEach(msg => {
-        const bubble = document.createElement("div");
-        bubble.textContent = msg.sender + ": " + msg.text;
-        bubble.style.backgroundColor = msg.sender === "utente" ? "#d1e7dd" : "#f8d7da";
-        bubble.style.margin = "5px 0";
-        bubble.style.padding = "0.5rem";
-        bubble.style.borderRadius = "5px";
-        bubble.style.textAlign = msg.sender === "utente" ? "right" : "left";
-        chatBox.appendChild(bubble);
-    });
+    const clientId = Number(document.querySelector('[name="client_id"]').value);
+    const chatNumber = Number(document.querySelector('[name="chat_number"]').value);
 
-    chatBox.scrollTop = chatBox.scrollHeight;
+    function appendMessage(text, sender = "bot") {
+      const div = document.createElement("div");
+      div.classList.add("message", sender === "utente" ? "user" : "bot");
+
+      if (typeof text === "string" && text.startsWith('"')) {
+        try { text = JSON.parse(text); } catch {}
+      }
+
+      div.innerHTML = sender === "utente" ? text : marked.parse(text);
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    chatHistory.forEach(msg => appendMessage(msg.text, msg.sender));
 
     form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const userMsg = input.value;
-        if (!userMsg.trim()) return;
+      e.preventDefault();
+      const userMsg = input.value.trim();
+      if (!userMsg) return;
 
-        // disattivo input e bottone
-        input.disabled = true;
-        form.querySelector("button[type='submit']").disabled = true;
+      input.disabled = true;
+      form.querySelector("button").disabled = true;
 
-        // aggiunta bubble utente
-        const userBubble = document.createElement("div");
-        userBubble.textContent = userMsg;
-        userBubble.style.backgroundColor = "#d1e7dd";
-        userBubble.style.margin = "5px 0";
-        userBubble.style.padding = "0.5rem";
-        userBubble.style.borderRadius = "5px";
-        userBubble.style.textAlign = "right";
-        chatBox.appendChild(userBubble);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        input.value = "";
+      appendMessage(userMsg, "utente");
+      input.value = "";
 
-        // funzione che invia il messaggio al backend
-        const sendMessage = async (lat = null, lon = null) => {
-            try {
-                const res = await fetch("/chat/msg", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        client_id: document.querySelector('[name="client_id"]').value,
-                        chat_number: document.querySelector('[name="chat_number"]').value,
-                        new_msg: userMsg,
-                        latitude: lat,
-                        longitude: lon
-                    })
+      const sendMessage = async (lat = null, lon = null) => {
+        try {
+          const res = await fetch("/chat/msg", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              client_id: clientId,
+              chat_number: chatNumber,
+              new_msg: userMsg,
+              latitude: lat,
+              longitude: lon
+            })
+          });
+
+          let reply = await res.text();
+          if (reply.startsWith('"') && reply.endsWith('"')) {
+            try { reply = JSON.parse(reply); } catch {}
+          }
+
+          appendMessage(reply, "bot");
+
+          const mediciRes = await fetch(`/medici_consigliati?client_id=${clientId}&chat_number=${chatNumber}`);
+          // if (!mediciRes.ok) throw new Error("Errore nel recupero medici consigliati");
+          // per aggiustare il pannello se non ci sono medici selezionati 
+          if (!mediciRes.ok) {
+            console.log("Categoria/medici non trovata");
+            return;
+          }
+          
+          const data = await mediciRes.json();
+
+          if (Array.isArray(data.medici) && data.medici.length > 0) {
+            const reparto = data.reparto || "Specializzazione sconosciuta";
+            const ul = document.createElement("ul");
+
+            data.medici.forEach(m => {
+              const li = document.createElement("li");
+              li.innerHTML = `
+                <strong>${m.nome} ${m.cognome}</strong> (${m.specializzazione})<br>
+                Indirizzo: ${m.indirizzo}<br>
+                Distanza: ${m.distanza_km?.toFixed(1) || "?"} km<br>
+                <button onclick="mostraGiorniDisponibili(${m.id})">Prenota</button>
+                <div id="giorni-disponibili-${m.id}" class="giorni-disponibili" style="margin-top: 0.5em;"></div>
+              `;
+              ul.appendChild(li);
+            });
+
+            mediciContainer.innerHTML = `<h3>Medici consigliati per il reparto: ${reparto}</h3>`;
+            mediciContainer.appendChild(ul);
+          } else {
+            mediciContainer.innerHTML = "<p>Nessun medico disponibile al momento.</p>";
+          }
+
+        } catch (error) {
+          console.error("❌ Errore:", error);
+          appendMessage("Errore nel caricamento. Riprova.", "bot");
+        } finally {
+          input.disabled = false;
+          form.querySelector("button").disabled = false;
+          input.focus();
+        }
+      };
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => sendMessage(pos.coords.latitude, pos.coords.longitude),
+          () => sendMessage()
+        );
+      } else {
+        sendMessage();
+      }
+    });
+
+    async function mostraGiorniDisponibili(medicoId) {
+      const overlay = document.createElement("div");
+      overlay.className = "popup-overlay";
+
+      const popup = document.createElement("div");
+      popup.className = "popup";
+
+      const title = document.createElement("h3");
+      title.textContent = "Giorni e orari disponibili";
+      popup.appendChild(title);
+
+      const container = document.createElement("div");
+      popup.appendChild(container);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "Chiudi";
+      closeBtn.style.marginTop = "10px";
+      closeBtn.onclick = () => document.body.removeChild(overlay);
+      popup.appendChild(closeBtn);
+
+      overlay.appendChild(popup);
+      document.body.appendChild(overlay);
+
+      try {
+        const res = await fetch(`/giorni_disponibili?id_medico=${medicoId}`);
+        if (!res.ok) throw new Error("Errore nel recupero giorni e orari");
+        const data = await res.json();
+
+        if (!data || Object.keys(data).length === 0) {
+          container.innerHTML = "<p>Nessun giorno disponibile.</p>";
+          return;
+        }
+
+        for (const [giorno, orari] of Object.entries(data)) {
+          const dayBlock = document.createElement("div");
+          dayBlock.className = "day-block";
+
+          const dayTitle = document.createElement("div");
+          dayTitle.className = "day-title";
+          dayTitle.textContent = giorno;
+          dayBlock.appendChild(dayTitle);
+
+          orari.forEach(orario => {
+            const btn = document.createElement("button");
+            btn.textContent = orario;
+            btn.onclick = async () => {
+              const datetime = `${giorno}T${orario}:00`;
+              try {
+                const response = await fetch('/prenota_appuntamento', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    id_medico: medicoId,
+                    datetime_appuntamento: datetime,
+                    id_cliente: clientId
+                  }),
                 });
 
-                const reply = await res.text();
+                if (!response.ok) throw new Error('Prenotazione fallita');
+                alert('Prenotazione effettuata con successo!');
+                document.body.removeChild(overlay);
+              } catch (error) {
+                alert('Errore durante la prenotazione: ' + error.message);
+              }
+            };
+            dayBlock.appendChild(btn);
+          });
 
-                const aiBubble = document.createElement("div");
-                
-                // PROVANDO A LEGGERE MARKDOWN
-
-                // aiBubble.textContent = reply;
-                aiBubble.innerHTML = marked.parse(reply);
-
-
-                aiBubble.style.backgroundColor = "#f8d7da";
-                aiBubble.style.margin = "5px 0";
-                aiBubble.style.padding = "0.5rem";
-                aiBubble.style.borderRadius = "5px";
-                aiBubble.style.textAlign = "left";
-                chatBox.appendChild(aiBubble);
-                chatBox.scrollTop = chatBox.scrollHeight;
-
-            } catch (error) {
-                console.error("Errore nella richiesta:", error);
-            } finally {
-                input.disabled = false;
-                form.querySelector("button[type='submit']").disabled = false;
-                input.focus();
-            }
-        };
-
-        // provo a ottenere la posizione, altrimenti mando senza
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    sendMessage(lat, lon);
-                },
-                (error) => {
-                    console.warn("Geolocalizzazione non disponibile:", error);
-                    sendMessage(); // senza coordinate
-                }
-            );
-        } else {
-            console.warn("Geolocalizzazione non supportata dal browser.");
-            sendMessage(); // senza coordinate
+          container.appendChild(dayBlock);
         }
-    });
-    </script>
+      } catch (error) {
+        container.innerHTML = "<p>Errore nel caricamento dei giorni e orari.</p>";
+        console.error(error);
+      }
+    }
+  </script>
 </body>
 </html>

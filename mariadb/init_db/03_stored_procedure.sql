@@ -390,8 +390,7 @@ DROP PROCEDURE IF EXISTS insert_appuntamento//
 
 CREATE PROCEDURE insert_appuntamento(
     IN p_id_medico INT,
-    IN p_appuntamento TIMESTAMP,
-    IN p_id_cliente INT
+    IN p_appuntamento TIMESTAMP
 )
 BEGIN
     DECLARE existing_id INT DEFAULT 0;
@@ -408,35 +407,33 @@ BEGIN
     SELECT id INTO existing_id
     FROM Agenda 
     WHERE id_medico = p_id_medico 
-        AND appuntamento = p_appuntamento 
-        AND id_cliente = p_id_cliente 
+        AND appuntamento = p_appuntamento
         AND stato = 'Eliminato'
     LIMIT 1;
     
     IF existing_id > 0 THEN
-        -- Se esiste un record eliminato, riattivalo
+        -- Se esiste un record eliminato, riattivalo come 'Attivo' (slot libero)
         UPDATE Agenda 
-        SET stato = 'Attivo'
+        SET stato = 'Attivo', id_cliente = NULL
         WHERE id = existing_id;
         
         COMMIT;
         
         SELECT 
             existing_id AS id_appuntamento,
-            'Appuntamento riattivato' AS messaggio,
+            'Slot riattivato come disponibile' AS messaggio,
             p_id_medico AS id_medico,
             p_appuntamento AS appuntamento,
-            p_id_cliente AS id_cliente;
+            'Attivo' AS stato;
     ELSE
-        -- Verifica che non esista già un appuntamento attivo con gli stessi dati
+        -- Verifica che non esista già un appuntamento attivo/prenotato con gli stessi dati
         IF EXISTS (
             SELECT 1 FROM Agenda 
             WHERE id_medico = p_id_medico 
                 AND appuntamento = p_appuntamento 
-                AND id_cliente = p_id_cliente 
-                AND stato = 'Attivo'
+                AND stato IN ('Attivo', 'Prenotato')
         ) THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento già esistente e attivo per questi parametri';
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slot già esistente per questi parametri';
         END IF;
         
         -- Verifica che il medico esista e sia attivo
@@ -444,17 +441,12 @@ BEGIN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non attivo';
         END IF;
         
-        -- Verifica che il cliente esista e sia attivo
-        IF NOT EXISTS (SELECT 1 FROM Cliente WHERE id = p_id_cliente AND stato = 'Attivo') THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
-        END IF;
-        
         -- Verifica che la data dell'appuntamento sia futura
         IF p_appuntamento <= NOW() THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "La data dell'appuntamento deve essere futura";
         END IF;
         
-        -- Inserisci il nuovo appuntamento
+        -- Inserisci il nuovo slot come 'Attivo' (disponibile)
         INSERT INTO Agenda (
             id_medico,
             appuntamento,
@@ -463,7 +455,7 @@ BEGIN
         ) VALUES (
             p_id_medico,
             p_appuntamento,
-            p_id_cliente,
+            NULL,
             'Attivo'
         );
         
@@ -471,58 +463,76 @@ BEGIN
         
         SELECT 
             LAST_INSERT_ID() AS id_appuntamento,
-            'Nuovo appuntamento creato' AS messaggio,
+            'Nuovo slot disponibile creato' AS messaggio,
             p_id_medico AS id_medico,
             p_appuntamento AS appuntamento,
-            p_id_cliente AS id_cliente;
+            'Attivo' AS stato;
     END IF;
     
 END//
 
 DELIMITER ;
 
-
--- Procedure per eliminare logicamente un appuntamento dall'agenda
+-- Procedure per eliminare logicamente un appuntamento dall'agenda e dalla tabella Appuntamento
 DELIMITER //
-
 DROP PROCEDURE IF EXISTS elimina_appuntamento_logico//
-
 CREATE PROCEDURE elimina_appuntamento_logico(
     IN p_id_appuntamento INT
 )
 BEGIN
     DECLARE appuntamento_count INT DEFAULT 0;
+    DECLARE agenda_count INT DEFAULT 0;
+    DECLARE v_id_cliente INT;
+    DECLARE v_id_medico INT;
+    DECLARE v_data_appuntamento TIMESTAMP;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
-    
+
     START TRANSACTION;
-    
-    -- Verifica che l'appuntamento esista e sia attivo
-    SELECT COUNT(*) INTO appuntamento_count
-    FROM Agenda 
-    WHERE id = p_id_appuntamento AND stato = 'Attivo';
-    
+
+    -- Verifica che l'appuntamento esista nella tabella Appuntamento e sia attivo
+    SELECT COUNT(*), id_cliente, id_medico, data_appuntamento 
+    INTO appuntamento_count, v_id_cliente, v_id_medico, v_data_appuntamento
+    FROM Appuntamento
+    WHERE id = p_id_appuntamento AND stato IN ('Prenotato', 'Effettuato');
+
     IF appuntamento_count = 0 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o già eliminato';
     END IF;
-    
-    -- Elimina logicamente l'appuntamento
-    UPDATE Agenda 
+
+    -- Elimina logicamente l'appuntamento dalla tabella Appuntamento
+    UPDATE Appuntamento
     SET stato = 'Eliminato'
     WHERE id = p_id_appuntamento;
-    
-    COMMIT;
-    
-    SELECT 
-        p_id_appuntamento AS id_appuntamento_eliminato,
-        'Appuntamento eliminato logicamente' AS messaggio;
-    
-END//
 
+    -- Verifica se esiste un record corrispondente nell'Agenda e lo elimina logicamente
+    SELECT COUNT(*) INTO agenda_count
+    FROM Agenda
+    WHERE id_cliente = v_id_cliente 
+      AND id_medico = v_id_medico 
+      AND appuntamento = v_data_appuntamento 
+      AND stato IN ('Attivo', 'Prenotato');
+
+    IF agenda_count > 0 THEN
+        UPDATE Agenda
+        SET stato = 'Eliminato'
+        WHERE id_cliente = v_id_cliente 
+          AND id_medico = v_id_medico 
+          AND appuntamento = v_data_appuntamento 
+          AND stato IN ('Attivo', 'Prenotato');
+    END IF;
+
+    COMMIT;
+
+    SELECT
+        p_id_appuntamento AS id_appuntamento_eliminato,
+        'Appuntamento eliminato logicamente da entrambe le tabelle' AS messaggio;
+
+END//
 DELIMITER ;
 
 
@@ -658,9 +668,12 @@ DELIMITER ;
 
 -- Procedure per completare un appuntamento con diagnosi
 DELIMITER //
+
+DROP PROCEDURE IF EXISTS completa_appuntamento//
+
 CREATE PROCEDURE completa_appuntamento(
-    IN appuntamento_id INT,
-    IN diagnosi VARCHAR(255)
+    IN p_id_appuntamento INT,
+    IN p_diagnosi VARCHAR(255)
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -674,25 +687,37 @@ BEGIN
     -- Aggiorna l'appuntamento come effettuato con la patologia individuata
     UPDATE Appuntamento 
     SET stato = 'Effettuato', 
-        patologia_individuata = diagnosi
-    WHERE id = appuntamento_id 
+        patologia_individuata = p_diagnosi
+    WHERE id = p_id_appuntamento 
         AND stato = 'Prenotato';
     
     -- Verifica se l'update è stato effettuato
     IF ROW_COUNT() = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o già completato';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o non in stato Prenotato';
     END IF;
+    
+    -- Lo slot in Agenda rimane 'Prenotato' per mantenere la traccia storica
+    -- Non modifichiamo la tabella Agenda per appuntamenti completati
     
     COMMIT;
     
-    SELECT 'Appuntamento completato con successo' AS messaggio;
+    SELECT 
+        p_id_appuntamento AS id_appuntamento_completato,
+        'Appuntamento completato con successo' AS messaggio,
+        p_diagnosi AS diagnosi_inserita;
 END//
 
+DELIMITER ;
+
 -- Procedure per aggiungere un ranking a un appuntamento
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS aggiungi_ranking_appuntamento//
+
 CREATE PROCEDURE aggiungi_ranking_appuntamento(
-    IN appuntamento_id INT,
-    IN voto DECIMAL(3,2),
-    IN commento_ranking TEXT
+    IN p_id_appuntamento INT,
+    IN p_voto DECIMAL(3,2),
+    IN p_commento_ranking TEXT
 )
 BEGIN
     DECLARE medico_id_var INT;
@@ -709,20 +734,20 @@ BEGIN
     -- Verifica che l'appuntamento sia effettuato
     SELECT id_medico INTO medico_id_var
     FROM Appuntamento 
-    WHERE id = appuntamento_id AND stato = 'Effettuato';
+    WHERE id = p_id_appuntamento AND stato = 'Effettuato';
     
     IF medico_id_var IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o non ancora effettuato';
     END IF;
     
     -- Verifica che non ci sia già un ranking per questo appuntamento
-    IF EXISTS (SELECT 1 FROM RankingAppuntamento WHERE id_appuntamento = appuntamento_id AND stato = 'Attivo') THEN
+    IF EXISTS (SELECT 1 FROM RankingAppuntamento WHERE id_appuntamento = p_id_appuntamento AND stato = 'Attivo') THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ranking già presente per questo appuntamento';
     END IF;
     
     -- Inserisci il ranking
     INSERT INTO RankingAppuntamento (id_appuntamento, id_medico, voto, commento)
-    VALUES (appuntamento_id, medico_id_var, voto, commento_ranking);
+    VALUES (p_id_appuntamento, medico_id_var, p_voto, p_commento_ranking);
     
     -- Aggiorna il ranking medio del medico nella tabella Specializzazione
     SELECT AVG(ra.voto) INTO nuovo_ranking
@@ -738,9 +763,12 @@ BEGIN
     SELECT 'Ranking aggiunto con successo' AS messaggio, nuovo_ranking AS nuovo_ranking_medio;
 END//
 
+DELIMITER ;
+
+DELIMITER //
 -- Procedure per ottenere dati anonimizzati di un paziente casuale senza ranking
 CREATE PROCEDURE get_paziente_random_senza_ranking(
-    IN medico_id INT
+    IN p_id_medico INT
 )
 BEGIN
     DECLARE appuntamento_random INT DEFAULT 0;
@@ -749,7 +777,7 @@ BEGIN
     -- Seleziona un appuntamento casuale effettuato dal medico senza ranking
     SELECT a.id, a.id_cliente INTO appuntamento_random, paziente_id
     FROM Appuntamento a
-    WHERE a.id_medico = medico_id 
+    WHERE a.id_medico = p_id_medico 
         AND a.stato = 'Effettuato'
         AND NOT EXISTS (
             SELECT 1 FROM RankingAppuntamento ra 
@@ -786,43 +814,6 @@ BEGIN
     END IF;
 END//
 
--- Procedure per prenotare un nuovo appuntamento
-CREATE PROCEDURE prenota_appuntamento(
-    IN cliente_id INT,
-    IN medico_id INT,
-    IN data_app TIMESTAMP
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-    
-    START TRANSACTION;
-    
-    -- Verifica che cliente e medico siano attivi
-    IF NOT EXISTS (SELECT 1 FROM Cliente WHERE id = cliente_id AND stato = 'Attivo') THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = medico_id AND stato = 'Attivo') THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non attivo';
-    END IF;
-    
-    -- Verifica che la data sia futura
-    IF data_app <= NOW() THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La data dell\'appuntamento deve essere futura';
-    END IF;
-    
-    -- Inserisci l'appuntamento
-    INSERT INTO Appuntamento (id_cliente, id_medico, data_appuntamento, stato)
-    VALUES (cliente_id, medico_id, data_app, 'Prenotato');
-    
-    COMMIT;
-    
-    SELECT LAST_INSERT_ID() AS nuovo_appuntamento_id;
-END//
 
 DELIMITER ;
 
@@ -831,7 +822,7 @@ DELIMITER ;
 -- Procedure per "eliminare" logicamente un cliente
 DELIMITER //
 CREATE PROCEDURE elimina_cliente_logico(
-    IN cliente_id INT
+    IN p_id_cliente INT
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -843,26 +834,26 @@ BEGIN
     START TRANSACTION;
     
     -- Elimina logicamente il cliente
-    UPDATE Cliente SET stato = 'Eliminato' WHERE id = cliente_id;
+    UPDATE Cliente SET stato = 'Eliminato' WHERE id = p_id_cliente;
     
     -- Elimina logicamente tutte le sue intolleranze
-    UPDATE IntolleranzaAlimentare SET stato = 'Eliminato' WHERE id_cliente = cliente_id;
+    UPDATE IntolleranzaAlimentare SET stato = 'Eliminato' WHERE id_cliente = p_id_cliente;
     
     -- Elimina logicamente tutte le sue condizioni pregresse
-    UPDATE CondizioniPatologichePregresse SET stato = 'Eliminato' WHERE id_cliente = cliente_id;
+    UPDATE CondizioniPatologichePregresse SET stato = 'Eliminato' WHERE id_cliente = p_id_cliente;
     
     -- Elimina logicamente tutte le sue condizioni familiari
-    UPDATE CondizioniPatologicheFamiliari SET stato = 'Eliminato' WHERE id_cliente = cliente_id;
+    UPDATE CondizioniPatologicheFamiliari SET stato = 'Eliminato' WHERE id_cliente = p_id_cliente;
     
     -- Elimina logicamente tutti i suoi appuntamenti
-    UPDATE Appuntamento SET stato = 'Eliminato' WHERE id_cliente = cliente_id;
+    UPDATE Appuntamento SET stato = 'Eliminato' WHERE id_cliente = p_id_cliente;
     
     COMMIT;
 END//
 
 -- Procedure per riattivare un cliente
 CREATE PROCEDURE riattiva_cliente(
-    IN cliente_id INT
+    IN p_id_cliente INT
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -874,23 +865,23 @@ BEGIN
     START TRANSACTION;
     
     -- Riattiva il cliente
-    UPDATE Cliente SET stato = 'Attivo' WHERE id = cliente_id;
+    UPDATE Cliente SET stato = 'Attivo' WHERE id = p_id_cliente;
     
     -- Riattiva tutte le sue intolleranze
-    UPDATE IntolleranzaAlimentare SET stato = 'Attivo' WHERE id_cliente = cliente_id;
+    UPDATE IntolleranzaAlimentare SET stato = 'Attivo' WHERE id_cliente = p_id_cliente;
     
     -- Riattiva tutte le sue condizioni pregresse
-    UPDATE CondizioniPatologichePregresse SET stato = 'Attivo' WHERE id_cliente = cliente_id;
+    UPDATE CondizioniPatologichePregresse SET stato = 'Attivo' WHERE id_cliente = p_id_cliente;
     
     -- Riattiva tutte le sue condizioni familiari
-    UPDATE CondizioniPatologicheFamiliari SET stato = 'Attivo' WHERE id_cliente = cliente_id;
+    UPDATE CondizioniPatologicheFamiliari SET stato = 'Attivo' WHERE id_cliente = p_id_cliente;
     
     COMMIT;
 END//
 
 -- Procedure per eliminare logicamente un medico
 CREATE PROCEDURE elimina_medico_logico(
-    IN medico_id INT
+    IN p_id_medico INT
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -902,17 +893,17 @@ BEGIN
     START TRANSACTION;
     
     -- Elimina logicamente il medico
-    UPDATE Medico SET stato = 'Eliminato' WHERE id = medico_id;
+    UPDATE Medico SET stato = 'Eliminato' WHERE id = p_id_medico;
     
     -- Elimina logicamente tutte le sue specializzazioni
-    UPDATE Specializzazione SET stato = 'Eliminato' WHERE id_medico = medico_id;
+    UPDATE Specializzazione SET stato = 'Eliminato' WHERE id_medico = p_id_medico;
     
     -- Elimina logicamente la sua agenda
-    UPDATE Agenda SET stato = 'Eliminato' WHERE id_medico = medico_id;
+    UPDATE Agenda SET stato = 'Eliminato' WHERE id_medico = p_id_medico;
     
     -- Elimina logicamente tutti i suoi appuntamenti futuri
     UPDATE Appuntamento SET stato = 'Eliminato' 
-    WHERE id_medico = medico_id AND data_appuntamento > NOW();
+    WHERE id_medico = p_id_medico AND data_appuntamento > NOW();
     
     COMMIT;
 END//
@@ -921,19 +912,275 @@ DELIMITER ;
 
 
 
--- eliminate procedure per MedicoSuggerito
+-- Procedure modificata per prenotare un nuovo appuntamento verificando disponibilità in Agenda
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS prenota_appuntamento//
+
+CREATE PROCEDURE prenota_appuntamento(
+    IN p_id_cliente INT,
+    IN p_id_medico INT,
+    IN p_data_app TIMESTAMP
+)
+BEGIN
+    DECLARE slot_agenda_id INT DEFAULT 0;
+    DECLARE slot_stato VARCHAR(20) DEFAULT '';
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verifica che cliente e medico siano attivi
+    IF NOT EXISTS (SELECT 1 FROM Cliente WHERE id = p_id_cliente AND stato = 'Attivo') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non attivo';
+    END IF;
+    
+    -- Verifica che il medico sia verificato
+    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo' AND verificato = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non verificato';
+    END IF;
+    
+    -- Verifica che la data sia futura
+    IF p_data_app <= NOW() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "La data dell'appuntamento deve essere futura";
+    END IF;
+    
+    -- Verifica disponibilità nella tabella Agenda e ottieni l'ID del slot
+    SELECT id, stato INTO slot_agenda_id, slot_stato
+    FROM Agenda 
+    WHERE id_medico = p_id_medico 
+        AND appuntamento = p_data_app 
+    LIMIT 1;
+    
+    -- Se non esiste nessun slot per quella data/ora
+    IF slot_agenda_id = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slot non disponibile: il medico non ha orari disponibili in questa data e ora';
+    END IF;
+    
+    -- Se lo slot esiste ma non è 'Attivo' (disponibile)
+    IF slot_stato != 'Attivo' THEN
+        IF slot_stato = 'Prenotato' THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slot non disponibile: già prenotato da un altro cliente';
+        ELSE
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slot non disponibile: stato non valido';
+        END IF;
+    END IF;
+    
+    -- Verifica che il cliente non abbia già un appuntamento nello stesso momento
+    IF EXISTS (
+        SELECT 1 FROM Agenda a
+        WHERE a.id_cliente = p_id_cliente 
+            AND a.appuntamento = p_data_app 
+            AND a.stato = 'Prenotato'
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Il cliente ha già un appuntamento prenotato in questa data e ora';
+    END IF;
+    
+    -- Verifica che il cliente non abbia già un appuntamento prenotato con lo stesso medico
+    IF EXISTS (
+        SELECT 1 FROM Appuntamento a
+        WHERE a.id_cliente = p_id_cliente 
+            AND a.id_medico = p_id_medico 
+            AND a.stato = 'Prenotato'
+            AND a.data_appuntamento > NOW()
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Il cliente ha già un appuntamento prenotato con questo medico';
+    END IF;
+    
+    -- Inserisci l'appuntamento nella tabella Appuntamento
+    INSERT INTO Appuntamento (id_cliente, id_medico, data_appuntamento, stato)
+    VALUES (p_id_cliente, p_id_medico, p_data_app, 'Prenotato');
+    
+    -- Aggiorna lo slot in Agenda da 'Attivo' a 'Prenotato'
+    UPDATE Agenda 
+    SET stato = 'Prenotato', id_cliente = p_id_cliente
+    WHERE id = slot_agenda_id;
+    
+    COMMIT;
+    
+    SELECT 
+        LAST_INSERT_ID() AS nuovo_appuntamento_id,
+        slot_agenda_id AS id_slot_agenda,
+        'Appuntamento prenotato con successo' AS messaggio,
+        p_data_app AS data_appuntamento,
+        p_id_medico AS id_medico,
+        p_id_cliente AS id_cliente;
+END//
+
+DELIMITER ;
+
+-- Procedure aggiuntiva per ottenere gli slot disponibili di un medico in un determinato giorno
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS get_slot_disponibili_medico//
+
+CREATE PROCEDURE get_slot_disponibili_medico(
+    IN p_id_medico INT,
+    IN p_data_giorno DATE,
+    IN p_ora_inizio TIME,
+    IN p_ora_fine TIME,
+    IN p_durata_slot INT
+)
+BEGIN
+    -- Imposta i valori di default se i parametri sono NULL
+    SET p_ora_inizio = COALESCE(p_ora_inizio, '09:00:00');
+    SET p_ora_fine = COALESCE(p_ora_fine, '18:00:00');
+    SET p_durata_slot = COALESCE(p_durata_slot, 30);
+    
+    -- Verifica che il medico esista e sia attivo e verificato
+    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo' AND verificato = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato, non attivo o non verificato';
+    END IF;
+    
+    -- Verifica che la data non sia nel passato
+    IF p_data_giorno < CURDATE() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Non è possibile verificare disponibilità per date passate';
+    END IF;
+    
+    -- Restituisci tutti gli slot disponibili (stato 'Attivo') per il medico nel giorno specificato
+    SELECT 
+        a.id AS id_slot,
+        DATE(a.appuntamento) AS data_appuntamento,
+        TIME(a.appuntamento) AS ora_appuntamento,
+        a.appuntamento AS datetime_completo,
+        a.stato AS stato_slot,
+        'Disponibile per prenotazione' AS descrizione
+    FROM Agenda a
+    WHERE a.id_medico = p_id_medico 
+        AND DATE(a.appuntamento) = p_data_giorno
+        AND a.stato = 'Attivo'
+        AND a.appuntamento > NOW()
+        AND TIME(a.appuntamento) BETWEEN p_ora_inizio AND p_ora_fine
+    ORDER BY a.appuntamento;
+END//
+
+DELIMITER ;
 
 
+-- Procedure per ottenere tutti gli appuntamenti occupati di un medico in un giorno
+DELIMITER //
 
+DROP PROCEDURE IF EXISTS get_appuntamenti_medico_giorno//
 
+CREATE PROCEDURE get_appuntamenti_medico_giorno(
+    IN p_id_medico INT,
+    IN p_data_giorno DATE
+)
+BEGIN
+    -- Verifica che il medico esista
+    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non attivo';
+    END IF;
+    
+    SELECT 
+        a.id AS id_agenda,
+        a.appuntamento AS datetime_appuntamento,
+        DATE(a.appuntamento) AS data_appuntamento,
+        TIME(a.appuntamento) AS ora_appuntamento,
+        CONCAT(c.nome, ' ', c.cognome) AS nome_cliente,
+        c.email AS email_cliente,
+        a.stato AS stato_slot
+    FROM Agenda a
+    JOIN Cliente c ON a.id_cliente = c.id
+    WHERE a.id_medico = p_id_medico 
+        AND DATE(a.appuntamento) = p_data_giorno
+        AND a.stato = 'Attivo'
+    ORDER BY a.appuntamento;
+END//
 
+DELIMITER ;
 
+-- Procedure per cancellare un appuntamento (elimina sia da Appuntamento che da Agenda)
+DELIMITER //
 
+DROP PROCEDURE IF EXISTS cancella_appuntamento_completo//
 
+CREATE PROCEDURE cancella_appuntamento_completo(
+    IN p_id_appuntamento INT
+)
+BEGIN
+    DECLARE medico_id_var INT;
+    DECLARE cliente_id_var INT;
+    DECLARE data_app_var TIMESTAMP;
+    DECLARE slot_agenda_id INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Ottieni i dati dell'appuntamento
+    SELECT id_medico, id_cliente, data_appuntamento 
+    INTO medico_id_var, cliente_id_var, data_app_var
+    FROM Appuntamento 
+    WHERE id = p_id_appuntamento AND stato = 'Prenotato';
+    
+    IF medico_id_var IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Appuntamento non trovato o non in stato Prenotato';
+    END IF;
+    
+    -- Ottieni l'ID del slot corrispondente in Agenda
+    SELECT id INTO slot_agenda_id
+    FROM Agenda 
+    WHERE id_medico = medico_id_var 
+        AND id_cliente = cliente_id_var 
+        AND appuntamento = data_app_var 
+        AND stato = 'Prenotato'
+    LIMIT 1;
+    
+    -- Elimina logicamente l'appuntamento
+    UPDATE Appuntamento 
+    SET stato = 'Eliminato'
+    WHERE id = p_id_appuntamento;
+    
+    -- Riporta lo slot da 'Prenotato' a 'Attivo' (disponibile)
+    IF slot_agenda_id > 0 THEN
+        UPDATE Agenda 
+        SET stato = 'Attivo', id_cliente = NULL
+        WHERE id = slot_agenda_id;
+    END IF;
+    
+    COMMIT;
+    
+    SELECT 
+        p_id_appuntamento AS id_appuntamento_cancellato,
+        slot_agenda_id AS id_slot_liberato,
+        'Appuntamento cancellato e slot liberato' AS messaggio,
+        medico_id_var AS id_medico,
+        cliente_id_var AS id_cliente,
+        data_app_var AS data_appuntamento;
+END//
 
+DELIMITER ;
+/*
+ESEMPI DI UTILIZZO:
 
+-- 1. Prenotare un appuntamento
+CALL prenota_appuntamento(1, 1, '2024-12-20 14:30:00');
 
+-- 2. Verificare slot disponibili per un medico in un giorno
+CALL get_slot_disponibili_medico(1, '2024-12-20', '09:00:00', '18:00:00', 30);
 
+-- 3. Vedere tutti gli appuntamenti di un medico in un giorno
+CALL get_appuntamenti_medico_giorno(1, '2024-12-20');
+
+-- 4. Cancellare un appuntamento
+CALL cancella_appuntamento_completo(1);
+
+-- 5. Tentare di prenotare uno slot già occupato (dovrebbe dare errore)
+CALL prenota_appuntamento(2, 1, '2024-12-20 14:30:00');
+*/
 
 -- ESEMPI DI USO DELLE STORED PROCEDURE
 
@@ -1098,3 +1345,270 @@ WHERE a.id_medico = 1
     AND a.stato = 'Attivo'
 ORDER BY a.appuntamento;
 */
+
+DELIMITER //
+
+CREATE PROCEDURE get_giorni_disponibili_medico(
+    IN p_id_medico INT
+)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Medico WHERE id = p_id_medico AND stato = 'Attivo' AND verificato = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Medico non trovato o non verificato';
+    END IF;
+
+    SELECT
+      DATE(appuntamento) AS giorno,
+      TIME(appuntamento) AS orario
+    FROM Agenda
+    WHERE id_medico = p_id_medico
+      AND stato = 'Attivo'
+      AND appuntamento > NOW()
+      AND id_cliente IS NULL
+    ORDER BY giorno, orario;
+END //
+
+
+DELIMITER ;
+
+-- Procedure per eliminare logicamente una chat
+DELIMITER //
+DROP PROCEDURE IF EXISTS elimina_chat_logico//
+CREATE PROCEDURE elimina_chat_logico(
+    IN p_id_chat INT
+)
+BEGIN
+    DECLARE chat_count INT DEFAULT 0;
+    DECLARE v_id_cliente INT;
+    DECLARE v_numero_chat INT;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Verifica che la chat esista e sia attiva
+    SELECT COUNT(*), id_cliente, numero_chat 
+    INTO chat_count, v_id_cliente, v_numero_chat
+    FROM Chat
+    WHERE id = p_id_chat AND stato = 'Attivo';
+
+    IF chat_count = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chat non trovata o già eliminata';
+    END IF;
+
+    -- Elimina logicamente la chat
+    UPDATE Chat
+    SET stato = 'Eliminato'
+    WHERE id = p_id_chat;
+
+    COMMIT;
+
+    SELECT
+        p_id_chat AS id_chat_eliminata,
+        v_id_cliente AS id_cliente,
+        v_numero_chat AS numero_chat,
+        'Chat eliminata logicamente' AS messaggio;
+
+END//
+DELIMITER ;
+
+-- Procedure per eliminare logicamente tutte le chat di un cliente
+DELIMITER //
+DROP PROCEDURE IF EXISTS elimina_tutte_chat_cliente//
+CREATE PROCEDURE elimina_tutte_chat_cliente(
+    IN p_id_cliente INT
+)
+BEGIN
+    DECLARE chat_count INT DEFAULT 0;
+    DECLARE cliente_exists INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Verifica che il cliente esista
+    SELECT COUNT(*) INTO cliente_exists
+    FROM Cliente
+    WHERE id = p_id_cliente AND stato = 'Attivo';
+
+    IF cliente_exists = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
+    END IF;
+
+    -- Conta le chat attive del cliente
+    SELECT COUNT(*) INTO chat_count
+    FROM Chat
+    WHERE id_cliente = p_id_cliente AND stato = 'Attivo';
+
+    IF chat_count = 0 THEN
+        SELECT
+            p_id_cliente AS id_cliente,
+            0 AS chat_eliminate,
+            'Nessuna chat attiva trovata per questo cliente' AS messaggio;
+    ELSE
+        -- Elimina logicamente tutte le chat del cliente
+        UPDATE Chat
+        SET stato = 'Eliminato'
+        WHERE id_cliente = p_id_cliente AND stato = 'Attivo';
+
+        SELECT
+            p_id_cliente AS id_cliente,
+            chat_count AS chat_eliminate,
+            CONCAT('Eliminate logicamente ', chat_count, ' chat del cliente') AS messaggio;
+    END IF;
+
+    COMMIT;
+
+END//
+DELIMITER ;
+
+-- Procedure per eliminare logicamente una conversazione completa (stesso numero_chat)
+DELIMITER //
+DROP PROCEDURE IF EXISTS elimina_conversazione_logico//
+CREATE PROCEDURE elimina_conversazione_logico(
+    IN p_id_cliente INT,
+    IN p_numero_chat INT
+)
+BEGIN
+    DECLARE chat_count INT DEFAULT 0;
+    DECLARE cliente_exists INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Verifica che il cliente esista
+    SELECT COUNT(*) INTO cliente_exists
+    FROM Cliente
+    WHERE id = p_id_cliente AND stato = 'Attivo';
+
+    IF cliente_exists = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
+    END IF;
+
+    -- Conta le chat attive per quella conversazione
+    SELECT COUNT(*) INTO chat_count
+    FROM Chat
+    WHERE id_cliente = p_id_cliente 
+      AND numero_chat = p_numero_chat 
+      AND stato = 'Attivo';
+
+    IF chat_count = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Conversazione non trovata o già eliminata';
+    END IF;
+
+    -- Elimina logicamente tutte le chat della conversazione
+    UPDATE Chat
+    SET stato = 'Eliminato'
+    WHERE id_cliente = p_id_cliente 
+      AND numero_chat = p_numero_chat 
+      AND stato = 'Attivo';
+
+    COMMIT;
+
+    SELECT
+        p_id_cliente AS id_cliente,
+        p_numero_chat AS numero_chat,
+        chat_count AS messaggi_eliminati,
+        CONCAT('Conversazione eliminata logicamente (', chat_count, ' messaggi)') AS messaggio;
+
+END//
+DELIMITER ;
+
+-- Procedure per ottenere tutti gli appuntamenti di un cliente
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS get_appuntamenti_cliente//
+DELIMITER //
+
+CREATE PROCEDURE get_appuntamenti_cliente(
+    IN p_id_cliente INT
+)
+BEGIN
+    -- Verifica che il cliente esista e sia attivo
+    IF NOT EXISTS (SELECT 1 FROM Cliente WHERE id = p_id_cliente AND stato = 'Attivo') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente non trovato o non attivo';
+    END IF;
+    
+    -- Restituisce tutti gli appuntamenti del cliente con le informazioni del medico
+    SELECT 
+        a.id AS id_appuntamento,
+        a.data_appuntamento,
+        DATE(a.data_appuntamento) AS data_appuntamento_date,
+        TIME(a.data_appuntamento) AS ora_appuntamento,
+        a.stato AS stato_appuntamento,
+        a.patologia_individuata,
+        a.data_registrazione AS data_prenotazione,
+        
+        -- Informazioni del medico
+        m.id AS id_medico,
+        CONCAT(m.nome, ' ', m.cognome) AS nome_completo_medico,
+        m.nome AS nome_medico,
+        m.cognome AS cognome_medico,
+        m.email AS email_medico,
+        m.telefono AS telefono_medico,
+        m.url_sito AS sito_medico,
+        m.indirizzo AS indirizzo_medico,
+        m.citta AS citta_medico,
+        
+        -- Specializzazioni del medico (concatenate)
+        GROUP_CONCAT(DISTINCT s.specializzazione SEPARATOR ', ') AS specializzazioni_medico,
+        
+        -- Ranking medio del medico
+        COALESCE(AVG(s.ranking), 0.00) AS ranking_medio_medico,
+        
+        -- Informazioni se l'appuntamento ha già un ranking
+        CASE 
+            WHEN ra.id IS NOT NULL THEN 'Si'
+            ELSE 'No'
+        END AS ha_ranking,
+        ra.voto AS voto_dato,
+        ra.commento AS commento_ranking,
+        ra.data_ranking,
+        
+        -- Informazioni temporali utili
+        CASE 
+            WHEN a.data_appuntamento > NOW() THEN 'Futuro'
+            WHEN a.data_appuntamento <= NOW() AND a.stato = 'Prenotato' THEN 'Passato (non effettuato)'
+            WHEN a.stato = 'Effettuato' THEN 'Completato'
+            WHEN a.stato = 'Eliminato' THEN 'Cancellato'
+            ELSE 'Altro'
+        END AS status_temporale,
+        
+        DATEDIFF(a.data_appuntamento, CURDATE()) AS giorni_da_oggi,
+        
+        -- Indicatore se è possibile cancellare (solo appuntamenti futuri prenotati)
+        CASE 
+            WHEN a.data_appuntamento > NOW() AND a.stato = 'Prenotato' THEN 'Si'
+            ELSE 'No'
+        END AS cancellabile
+        
+    FROM Appuntamento a
+    JOIN Medico m ON a.id_medico = m.id
+    LEFT JOIN Specializzazione s ON (m.id = s.id_medico AND s.stato = 'Attivo')
+    LEFT JOIN RankingAppuntamento ra ON (a.id = ra.id_appuntamento AND ra.stato = 'Attivo')
+    
+    WHERE a.id_cliente = p_id_cliente 
+        AND a.stato IN ('Prenotato', 'Effettuato', 'Eliminato')
+        
+    GROUP BY 
+        a.id, a.data_appuntamento, a.stato, a.patologia_individuata, a.data_registrazione,
+        m.id, m.nome, m.cognome, m.email, m.telefono, m.url_sito, m.indirizzo, m.citta,
+        ra.id, ra.voto, ra.commento, ra.data_ranking
+        
+    ORDER BY 
+        a.data_appuntamento DESC, a.data_registrazione DESC;
+END//
+
+DELIMITER ;

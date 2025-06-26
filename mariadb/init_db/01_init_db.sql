@@ -113,9 +113,9 @@ CREATE TABLE IF NOT EXISTS Specializzazione (
 CREATE TABLE IF NOT EXISTS Agenda (
     id INT AUTO_INCREMENT,
     id_medico INT NOT NULL,
-    appuntamento TIMESTAMP NOT NULL,
-    id_cliente INT NOT NULL,
-    stato ENUM('Attivo', 'Eliminato') DEFAULT 'Attivo',
+    appuntamento TIMESTAMP,
+    id_cliente INT,
+    stato ENUM('Attivo', 'Prenotato', 'Eliminato') DEFAULT 'Attivo',
 
     -- Vincoli
     CONSTRAINT pk_agenda PRIMARY KEY (id),

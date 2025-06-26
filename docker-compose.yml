@@ -42,25 +42,6 @@ services:
     command: ["python", "popola_db.py"]
     restart: "no"
 
-  popola_admin:
-    build: ./script_admin
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    volumes:
-      - ./script_admin:/app
-    working_dir: /app
-    environment:
-      PYTHONUNBUFFERED: 1
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_USER: appuser
-      DB_PASSWORD: userdb
-      DB_NAME: user_db
-    command: ["python", "crea_admin.py"]
-    restart: "no"
-
-
   ollama_service:
     image: ollama/ollama
     container_name: ollama_service
@@ -105,6 +86,41 @@ services:
       - "8001:8001"
     depends_on:
       - backend_service
+
+
+# uso di celery per invio mail differite
+
+# qui il container per server redis e per debugger grafico e gestore rediscommander
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+  redis-commander:
+    image: rediscommander/redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+ 
+# qui il container per il worker, chi consuma i risultati storati o chi effettivamente fa partire i task
+
+  celery_worker:
+    build: ./backend
+    container_name: celery_worker
+    # --pool=solo limita la cpu, ma è consigliato per debugging; per sistemi multiprocessing togliere l'opzione, lasciare a default 
+    command: >
+      sh -c "celery -A backend.ranking.tasks worker --loglevel=info --pool=solo" 
+    working_dir: /app/src/backend
+    environment:
+      - PYTHONPATH=/app/src
+    depends_on:
+      - redis
+      - backend_service
+
+
+
+
 
 volumes:
   mariadb_data:

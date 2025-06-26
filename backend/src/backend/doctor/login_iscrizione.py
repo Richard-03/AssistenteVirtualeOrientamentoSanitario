@@ -1,12 +1,9 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import RedirectResponse
+from fastapi import HTTPException, UploadFile, File, Form
 import mariadb
-from typing import Optional, List
-import bcrypt #libreria per la criptazione della password
+import bcrypt #libreria per la cifratura della password
 from modules import *
-from send_mail import *
 import os
-
+from backend.email.send_email import send_doc_wait_for_verify
 
 from database.database import _get_connection
 #connessione  a mariadb
@@ -74,16 +71,30 @@ def subscribe_medico(
     telefono: str = Form(None),
     url_sito: str = Form(None),
     indirizzo: str = Form(None),
-    stato: str = Form(None)
+    stato: str = Form(None),
+    disponibilita: str = Form(...)  # aggiunto
 ):
     import json
     import requests
+    from datetime import datetime
 
     print("DEBUG: ricevuti i dati:")
     print(f"{nome=}, {cognome=}, {codice_fiscale=}, {numero_albo=}, {citta_ordine=}")
     print(f"{data_iscrizione_albo=}, {citta=}, {email=}, {password=}, {specializzazione=}")
     print(f"{telefono=}, {url_sito=}, {indirizzo=}, {stato=}, {tesserino.filename=}")
-    medico=MedicoModel(
+    print(f"{disponibilita=}")
+
+    # parsing e validazione disponibilità
+    try:
+        disponibilita_list = json.loads(disponibilita)
+        if not isinstance(disponibilita_list, list) or not disponibilita_list:
+            raise ValueError("La disponibilità deve essere una lista non vuota.")
+        for dt in disponibilita_list:
+            datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Disponibilità non valida: {str(e)}")
+
+    medico = MedicoModel(
         nome=nome,
         cognome=cognome,
         codice_fiscale=codice_fiscale,
@@ -97,15 +108,16 @@ def subscribe_medico(
         telefono=telefono,
         url_sito=url_sito,
         indirizzo=indirizzo,
-        stato=stato
+        stato=stato,
+        disponibilita=disponibilita_list
     )
-    query_verify = f"SELECT email FROM Medico WHERE email={format_value(medico.email)}"#verifica se  il medico gia e registrato
+
+    query_verify = f"SELECT email FROM Medico WHERE email={format_value(medico.email)}"
     conn = _get_connection()
-    result=execute_query(conn,query_verify)
-    if result!=[]:
+    result = execute_query(conn, query_verify)
+    if result != []:
         raise HTTPException(status_code=400, detail="Email già registrata. Hai già un account?")
     else:
-
         try:
             specializzazione_list = json.loads(medico.specializzazione)
         except Exception as e:
@@ -128,9 +140,8 @@ def subscribe_medico(
 
         latitudine, longitudine = get_lat_lon_from_address(medico.indirizzo)
 
-        #criptazione password
         password_criptata = bcrypt.hashpw(medico.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        query_call=f"""CALL insert_medico_completo(
+        query_call = f"""CALL insert_medico_completo(
             {format_value(medico.nome)},
             {format_value(medico.cognome)},
             {format_value(medico.codice_fiscale)},
@@ -145,7 +156,6 @@ def subscribe_medico(
             {format_value(medico.indirizzo)}
         )"""
 
-        # Salva il file tesserino 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         upload_dir = os.path.join(base_dir, "uploads")
         os.makedirs(upload_dir, exist_ok=True)
@@ -164,7 +174,6 @@ def subscribe_medico(
 
             for item in specializzazione_list:
                 spec = item.get("specializzazione")
-
                 if not spec:
                     continue
 
@@ -181,14 +190,18 @@ def subscribe_medico(
                 )
                 """
                 insert_data_query(conn, insert_spec)
+
+            # inserimento disponibilità tramite stored procedure
+            for fascia in medico.disponibilita:
+                query_slot = f"CALL insert_appuntamento({id_medico}, {format_value(fascia)});"
+                execute_query(conn, query_slot)
+
         except Exception as e:
             print(f"ERRORE DB: {e}")
             raise HTTPException(status_code=500, detail="Errore nel salvataggio dei dati. Riprova più tardi o contatta l'assistenza.")
 
-        sendMail(medico.email, medico.nome, medico.cognome)
+        send_doc_wait_for_verify(medico.email, medico.nome, medico.cognome)
         return {"message": "Registrazione completata con successo"}
-    
-
 
 
 def login_medico(medico:MedicoLoginModel):
@@ -267,16 +280,16 @@ def get_agenda_medico(id_medico: int):
     conn = _get_connection()
     query = f"""
     SELECT 
-        a.id AS id_appuntamento,
-        a.appuntamento,
-        a.stato AS stato_appuntamento,
+        app.id AS id_appuntamento,
+        app.data_appuntamento,
+        app.stato AS stato_appuntamento,
         c.nome AS nome_cliente,
         c.cognome AS cognome_cliente
-    FROM Agenda a
-    JOIN Cliente c ON c.id = a.id_cliente
-    WHERE a.id_medico = {format_value(id_medico)}
-      AND a.stato != 'Eliminato'
-    ORDER BY a.appuntamento ASC;
+    FROM Appuntamento app
+    JOIN Cliente c ON c.id = app.id_cliente
+    WHERE app.id_medico = {format_value(id_medico)}
+    AND app.stato != 'Eliminato'
+    ORDER BY app.data_appuntamento ASC;
     """
     try:
         result = execute_query(conn, query)
@@ -285,18 +298,3 @@ def get_agenda_medico(id_medico: int):
         print(f"ERRORE AGENDA MEDICO: {e}")
         raise HTTPException(status_code=500, detail=f"Errore nel recupero dell'agenda: {str(e)}")
 
-
-# Endpoint per eliminare un appuntamento (aggiorna lo stato a 'Eliminato')
-def elimina_appuntamento(id_appuntamento: int):
-    conn = _get_connection()
-    query = f"""
-    UPDATE Agenda
-    SET stato = 'Eliminato'
-    WHERE id = {id_appuntamento} 
-    """
-
-    try:
-        execute_query(conn, query)
-        return {"message": "Appuntamento eliminato con successo"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Errore durante l'eliminazione: {str(e)}")

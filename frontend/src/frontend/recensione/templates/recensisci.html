@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Lascia una recensione</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(#f0f8ff, #dfefff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        form {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 119, 204, 0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #0077cc;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #f9f9f9;
+        }
+
+        input[type="number"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #0077cc;
+            box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.2);
+        }
+
+        button {
+            background-color: #0077cc;
+            color: white;
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #005fa3;
+        }
+
+      
+    </style>
+</head>
+<body>
+    <form action="/recensisci" method="post">
+        <h2>Lascia una recensione</h2>
+        
+        <input type="hidden" name="id_appuntamento" id="id_appuntamento">
+        <input type="hidden" name="id_medico" id="id_medico">
+
+        <label for="voto">Voto (1-10):</label>
+        <input type="number" name="voto" id="voto" min="1" max="10" required>
+
+        <label for="commento">Commento:</label>
+        <textarea name="commento" id="commento" rows="5" required></textarea>
+
+        <button type="submit">Invia</button>
+    </form>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        document.getElementById("id_appuntamento").value = params.get("id_app");
+        document.getElementById("id_medico").value = params.get("id_medico");
+    </script>
+</body>
+</html>

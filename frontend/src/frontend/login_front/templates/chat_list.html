@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,19 +7,26 @@
     <link rel="stylesheet" href="/login_front/css/chat_list.css">
 </head>
 <body>
-    <a href="/dashboard_utente" class="home-button">Dashboard</a>
+    <a href="/dashboard_utente" class="home-button">🏠 Dashboard</a>
     <h2>Le tue chat precedenti</h2>
     <ul>
-    {% for chat_number in chat_list %}
-        <li>
-            <form action="/chat" method="get">
-                <input type="hidden" name="client_id" value="{{ client_id }}">
-                <input type="hidden" name="chat_number" value="{{ chat_number }}">
-                <button type="submit">Chat #{{ chat_number }}</button>
-            </form>
+        {% for chat_number in chat_list %}
+        <li class="chat-item">
+            <div class="button-group">
+                <form action="/chat" method="get">
+                    <input type="hidden" name="client_id" value="{{ client_id }}">
+                    <input type="hidden" name="chat_number" value="{{ chat_number }}">
+                    <button type="submit" class="btn-chat">Chat #{{ chat_number }}</button>
+                </form>
+
+                <form action="/elimina_chat" method="post" onsubmit="return confirm('Sei sicuro di voler eliminare questa chat?');">
+                    <input type="hidden" name="client_id" value="{{ client_id }}">
+                    <input type="hidden" name="chat_number" value="{{ chat_number }}">
+                    <button type="submit" class="btn-elimina">🗑️</button>
+                </form>
+            </div>
         </li>
-    {% endfor %}
-</ul>
+        {% endfor %}
+    </ul>
 </body>
 </html>
-

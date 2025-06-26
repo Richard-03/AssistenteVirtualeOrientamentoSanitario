@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Modifica Profilo</title>
+    <link rel="stylesheet" href="/login_front/css/modifica.css" />
+</head>
+<body class="dashboard-container">
+    <a href="/dashboard_utente" class="home-button">🏠 Dashboard</a>
+
+    <div class="modifica-form-container">
+        <h2 class="modifica-form-title">Modifica il tuo profilo</h2>
+
+        <form class="modifica-form" action="/modifica_profilo" method="post">
+            <input type="hidden" name="client_id" value="{{ client_id }}"/>
+
+            <label>Email:</label>
+            <input type="email" name="email" value="{{ email }}" required />
+
+            <label>Password (lascia vuoto per non modificarla):</label>
+            <input type="password" name="password" placeholder="Nuova password (opzionale)" />
+
+            <label>Indirizzo:</label>
+            <input type="text" name="indirizzo" value="{{ indirizzo }}" />
+
+            <label>Peso:</label>
+            <input type="number" step="0.01" name="peso" value="{{ peso }}" />
+
+            <label>Farmaci:</label>
+            <input type="text" name="farmaci" value="{{ farmaci }}" />
+
+            <label>Condizioni Pregresse:</label>
+            <input type="text" name="condizioni_pregresse" value="{{ condizioni_pregresse }}" />
+
+            <label>Condizioni Familiari:</label>
+            <input type="text" name="condizioni_familiari" value="{{ condizioni_familiari }}" />
+
+            <button type="submit">Salva modifiche</button>
+        </form>
+    </div>
+</body>
+</html>
